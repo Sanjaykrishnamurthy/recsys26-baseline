@@ -1,0 +1,31 @@
+# Music CRS Baselines — Python Requirements
+# Install with: pip install -r requirements.txt
+# Or (recommended): uv pip install -r requirements.txt
+
+# --- Core deep learning ---
+torch>=2.5.1
+torchaudio>=2.5.1
+torchvision>=0.20.1
+
+# --- LLM & embeddings ---
+transformers>=4.46.3
+
+# --- Dataset access (Hugging Face) ---
+datasets>=3.1.0
+
+# --- Sparse retrieval ---
+bm25s>=0.2.13
+
+# --- Config management ---
+omegaconf>=2.3.0
+
+# --- Data processing (used in inference scripts) ---
+pandas>=2.0.0
+tqdm>=4.66.0
+
+# --- System monitoring ---
+psutil>=7.2.2
+
+# --- Optional: fast attention (requires CUDA + compatible GPU) ---
+# Uncomment and install separately if needed:
+# flash-attn  (install with: uv pip install flash-attn --no-build-isolation)

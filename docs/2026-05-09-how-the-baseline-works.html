@@ -1,0 +1,991 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>How the Baseline Works — Music CRS Baselines</title>
+  <style>
+    :root {
+      --bg: #f8f9fc;
+      --surface: #ffffff;
+      --surface2: #f1f3f9;
+      --border: #dde1ee;
+      --accent: #5b4fcf;
+      --accent2: #0d9488;
+      --accent3: #ea6c00;
+      --text: #1a1d2e;
+      --text-muted: #5a6380;
+      --code-bg: #f3f4f8;
+      --success: #16a34a;
+      --warning: #ca8a04;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Inter", sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.7;
+      font-size: 15px;
+    }
+
+    /* ── Layout ── */
+    .layout {
+      display: grid;
+      grid-template-columns: 240px 1fr;
+      min-height: 100vh;
+    }
+
+    /* ── Sidebar ── */
+    aside {
+      background: var(--surface);
+      border-right: 1px solid var(--border);
+      padding: 32px 20px;
+      position: sticky;
+      top: 0;
+      height: 100vh;
+      overflow-y: auto;
+    }
+
+    .sidebar-logo {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 32px;
+    }
+
+    .sidebar-logo .icon {
+      width: 36px;
+      height: 36px;
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 18px;
+    }
+
+    .sidebar-logo span {
+      font-weight: 700;
+      font-size: 14px;
+      color: var(--text);
+      line-height: 1.2;
+    }
+
+    .sidebar-logo small {
+      display: block;
+      color: var(--text-muted);
+      font-size: 11px;
+      font-weight: 400;
+    }
+
+    .nav-section {
+      margin-bottom: 24px;
+    }
+
+    .nav-label {
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      color: var(--text-muted);
+      margin-bottom: 8px;
+      padding-left: 8px;
+    }
+
+    .nav-link {
+      display: block;
+      padding: 7px 10px;
+      border-radius: 6px;
+      color: var(--text-muted);
+      text-decoration: none;
+      font-size: 13px;
+      transition: all 0.15s;
+      margin-bottom: 2px;
+    }
+
+    .nav-link:hover,
+    .nav-link.active {
+      background: var(--surface2);
+      color: var(--text);
+    }
+
+    .nav-link.active {
+      color: var(--accent);
+      border-left: 2px solid var(--accent);
+      padding-left: 8px;
+    }
+
+    /* ── Main ── */
+    main {
+      max-width: 900px;
+      padding: 48px 56px;
+    }
+
+    /* ── Hero ── */
+    .hero {
+      margin-bottom: 56px;
+      padding-bottom: 40px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .badge-row {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-bottom: 16px;
+    }
+
+    .badge {
+      font-size: 11px;
+      font-weight: 600;
+      padding: 3px 10px;
+      border-radius: 999px;
+      border: 1px solid;
+    }
+
+    .badge-purple { color: var(--accent); border-color: var(--accent); background: rgba(124,106,247,0.1); }
+    .badge-teal   { color: var(--accent2); border-color: var(--accent2); background: rgba(94,234,212,0.1); }
+    .badge-orange { color: var(--accent3); border-color: var(--accent3); background: rgba(249,115,22,0.1); }
+    .badge-green  { color: var(--success); border-color: var(--success); background: rgba(34,197,94,0.1); }
+
+    .hero h1 {
+      font-size: 36px;
+      font-weight: 800;
+      line-height: 1.2;
+      margin-bottom: 12px;
+      background: linear-gradient(135deg, #1a1d2e 40%, var(--accent));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .hero p {
+      color: var(--text-muted);
+      font-size: 16px;
+      max-width: 640px;
+    }
+
+    .meta {
+      margin-top: 20px;
+      font-size: 12px;
+      color: var(--text-muted);
+    }
+
+    /* ── Sections ── */
+    section {
+      margin-bottom: 56px;
+      scroll-margin-top: 24px;
+    }
+
+    h2 {
+      font-size: 22px;
+      font-weight: 700;
+      margin-bottom: 20px;
+      color: var(--text);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    h2 .section-num {
+      width: 28px;
+      height: 28px;
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      border-radius: 6px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 13px;
+      font-weight: 800;
+      color: #fff;
+      flex-shrink: 0;
+    }
+
+    h3 {
+      font-size: 16px;
+      font-weight: 600;
+      margin: 24px 0 12px;
+      color: var(--text);
+    }
+
+    p { margin-bottom: 14px; color: var(--text-muted); }
+
+    /* ── Pipeline diagram ── */
+    .pipeline {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      margin: 24px 0;
+    }
+
+    .pipe-step {
+      display: flex;
+      align-items: stretch;
+      gap: 0;
+    }
+
+    .pipe-connector {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      width: 48px;
+      flex-shrink: 0;
+    }
+
+    .pipe-dot {
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      border: 2px solid var(--accent);
+      background: var(--bg);
+      margin-top: 20px;
+      flex-shrink: 0;
+    }
+
+    .pipe-line {
+      width: 2px;
+      flex: 1;
+      background: linear-gradient(to bottom, var(--accent), var(--accent2));
+      margin: 0 auto;
+      min-height: 24px;
+    }
+
+    .pipe-card {
+      flex: 1;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 18px 20px;
+      margin-bottom: 4px;
+    }
+
+    .pipe-card:hover {
+      border-color: var(--accent);
+      background: var(--surface2);
+    }
+
+    .pipe-card-header {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 8px;
+    }
+
+    .pipe-tag {
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      padding: 2px 8px;
+      border-radius: 4px;
+      background: rgba(124,106,247,0.15);
+      color: var(--accent);
+    }
+
+    .pipe-tag.teal { background: rgba(94,234,212,0.15); color: var(--accent2); }
+    .pipe-tag.orange { background: rgba(249,115,22,0.15); color: var(--accent3); }
+
+    .pipe-card-title {
+      font-weight: 700;
+      font-size: 15px;
+    }
+
+    .pipe-card p {
+      font-size: 13px;
+      margin: 0;
+      color: var(--text-muted);
+    }
+
+    .pipe-arrow {
+      text-align: center;
+      color: var(--accent2);
+      font-size: 18px;
+      line-height: 1;
+      margin: 2px 0;
+    }
+
+    /* ── Code blocks ── */
+    pre {
+      background: var(--code-bg);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 20px;
+      overflow-x: auto;
+      margin: 16px 0;
+      font-size: 13px;
+      line-height: 1.6;
+    }
+
+    code {
+      font-family: "SF Mono", "Fira Code", "Cascadia Code", monospace;
+      font-size: 13px;
+    }
+
+    p code, li code {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      padding: 1px 6px;
+      border-radius: 4px;
+      font-size: 12px;
+      color: var(--accent2);
+    }
+
+    .comment { color: #8a93b0; }
+    .keyword { color: #5b4fcf; }
+    .string  { color: #0d9488; }
+    .func    { color: #ea6c00; }
+    .var     { color: #1a1d2e; }
+    .num     { color: #b45309; }
+
+    /* ── Cards grid ── */
+    .cards {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+      margin: 20px 0;
+    }
+
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 20px;
+      transition: border-color 0.2s;
+    }
+
+    .card:hover { border-color: var(--accent); }
+
+    .card-icon {
+      font-size: 24px;
+      margin-bottom: 10px;
+    }
+
+    .card h4 {
+      font-size: 14px;
+      font-weight: 700;
+      margin-bottom: 6px;
+    }
+
+    .card p {
+      font-size: 13px;
+      margin: 0;
+    }
+
+    /* ── Table ── */
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 20px 0;
+      font-size: 13px;
+    }
+
+    th {
+      text-align: left;
+      padding: 10px 14px;
+      background: var(--surface2);
+      color: var(--text-muted);
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      border-bottom: 1px solid var(--border);
+    }
+
+    td {
+      padding: 10px 14px;
+      border-bottom: 1px solid var(--border);
+      color: var(--text-muted);
+      vertical-align: top;
+    }
+
+    td:first-child { color: var(--text); font-weight: 500; }
+
+    tr:last-child td { border-bottom: none; }
+    tr:hover td { background: var(--surface2); }
+
+    /* ── Callouts ── */
+    .callout {
+      border-radius: 10px;
+      padding: 16px 20px;
+      margin: 20px 0;
+      border-left: 3px solid;
+      display: flex;
+      gap: 12px;
+      align-items: flex-start;
+    }
+
+    .callout-icon { font-size: 18px; flex-shrink: 0; margin-top: 1px; }
+    .callout p { margin: 0; font-size: 13px; }
+
+    .callout-warning {
+      background: rgba(234,179,8,0.08);
+      border-color: var(--warning);
+    }
+    .callout-warning .callout-icon { color: var(--warning); }
+
+    .callout-info {
+      background: rgba(124,106,247,0.08);
+      border-color: var(--accent);
+    }
+    .callout-info .callout-icon { color: var(--accent); }
+
+    .callout-tip {
+      background: rgba(34,197,94,0.08);
+      border-color: var(--success);
+    }
+    .callout-tip .callout-icon { color: var(--success); }
+
+    /* ── Timeline ── */
+    .timeline {
+      position: relative;
+      margin: 20px 0;
+      padding-left: 28px;
+    }
+
+    .timeline::before {
+      content: '';
+      position: absolute;
+      left: 7px;
+      top: 8px;
+      bottom: 8px;
+      width: 2px;
+      background: linear-gradient(to bottom, var(--accent), var(--accent2));
+    }
+
+    .tl-item {
+      position: relative;
+      margin-bottom: 20px;
+    }
+
+    .tl-item::before {
+      content: '';
+      position: absolute;
+      left: -24px;
+      top: 6px;
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: var(--accent);
+      border: 2px solid var(--bg);
+    }
+
+    .tl-turn {
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      color: var(--accent);
+      letter-spacing: 0.06em;
+      margin-bottom: 3px;
+    }
+
+    .tl-content {
+      font-size: 13px;
+      color: var(--text-muted);
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 10px 14px;
+    }
+
+    /* ── JSON output ── */
+    .json-block {
+      background: var(--code-bg);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 20px;
+      font-family: "SF Mono", "Fira Code", monospace;
+      font-size: 13px;
+      line-height: 1.7;
+    }
+
+    .json-key   { color: var(--accent); }
+    .json-str   { color: var(--accent2); }
+    .json-num   { color: #b45309; }
+    .json-arr   { color: var(--text-muted); }
+    .json-comment { color: #8a93b0; font-style: italic; }
+
+    /* ── Improvement table ── */
+    .improve-tag {
+      display: inline-block;
+      font-size: 10px;
+      font-weight: 700;
+      padding: 2px 7px;
+      border-radius: 4px;
+      text-transform: uppercase;
+    }
+
+    .tag-easy   { background: rgba(34,197,94,0.15);  color: var(--success); }
+    .tag-medium { background: rgba(234,179,8,0.15);  color: var(--warning); }
+    .tag-hard   { background: rgba(249,115,22,0.15); color: var(--accent3); }
+
+    /* ── Footer ── */
+    footer {
+      margin-top: 64px;
+      padding-top: 24px;
+      border-top: 1px solid var(--border);
+      font-size: 12px;
+      color: var(--text-muted);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    /* ── Responsive ── */
+    @media (max-width: 768px) {
+      .layout { grid-template-columns: 1fr; }
+      aside { display: none; }
+      main { padding: 24px 20px; }
+      .cards { grid-template-columns: 1fr; }
+      h1 { font-size: 26px; }
+    }
+  </style>
+</head>
+<body>
+
+<div class="layout">
+
+  <!-- ── Sidebar ── -->
+  <aside>
+    <div class="sidebar-logo">
+      <div class="icon">🎵</div>
+      <span>Music CRS<small>RecSys 2026 Baselines</small></span>
+    </div>
+
+    <nav>
+      <div class="nav-section">
+        <div class="nav-label">Overview</div>
+        <a class="nav-link active" href="#overview">What is this baseline?</a>
+        <a class="nav-link" href="#pipeline">Two-Stage Pipeline</a>
+      </div>
+      <div class="nav-section">
+        <div class="nav-label">Stage 1 — Retrieval</div>
+        <a class="nav-link" href="#bm25">BM25 (Sparse)</a>
+        <a class="nav-link" href="#bert">BERT (Dense)</a>
+        <a class="nav-link" href="#index">What Goes in the Index</a>
+      </div>
+      <div class="nav-section">
+        <div class="nav-label">Stage 2 — LLM</div>
+        <a class="nav-link" href="#llm">Response Generation</a>
+        <a class="nav-link" href="#prompt">System Prompt</a>
+      </div>
+      <div class="nav-section">
+        <div class="nav-label">Session & Output</div>
+        <a class="nav-link" href="#multiturn">Multi-turn Conversations</a>
+        <a class="nav-link" href="#output">Output JSON Format</a>
+      </div>
+      <div class="nav-section">
+        <div class="nav-label">Extend</div>
+        <a class="nav-link" href="#improve">How to Improve</a>
+      </div>
+    </nav>
+  </aside>
+
+  <!-- ── Main Content ── -->
+  <main>
+
+    <!-- Hero -->
+    <div class="hero" id="overview">
+      <div class="badge-row">
+        <span class="badge badge-purple">RecSys Challenge 2026</span>
+        <span class="badge badge-teal">Two-Stage Pipeline</span>
+        <span class="badge badge-orange">Llama-3.2-1B</span>
+        <span class="badge badge-green">BM25 + BERT</span>
+      </div>
+      <h1>How the Baseline Works</h1>
+      <p>
+        A deep-dive into the <strong>music-crs-baselines</strong> system — how it retrieves relevant
+        tracks from a large catalog and generates natural language responses in a multi-turn
+        conversational music recommendation setting.
+      </p>
+      <div class="meta">📅 Documented: 2026-05-09 &nbsp;·&nbsp; 📦 Package: <code>mcrs</code> &nbsp;·&nbsp; 🐍 Python ≥ 3.8</div>
+    </div>
+
+    <!-- ── Section 1: Big Picture ── -->
+    <section id="pipeline">
+      <h2><span class="section-num">1</span> The Two-Stage Pipeline</h2>
+
+      <p>
+        The baseline mimics how a human music expert would help you: first <em>find relevant songs</em>,
+        then <em>explain them naturally</em>. These two jobs map to two distinct AI modules.
+      </p>
+
+      <div class="pipeline">
+        <!-- Input -->
+        <div style="padding: 14px 20px; background: var(--surface2); border: 1px solid var(--border); border-radius: 10px; margin-bottom: 4px; font-size: 13px; color: var(--text-muted);">
+          <strong style="color: var(--text);">💬 User Input</strong> &nbsp;—&nbsp;
+          "I want something chill and jazzy for a rainy evening"
+          <span style="float:right; font-size:11px; color: var(--text-muted);">+ full chat history from previous turns</span>
+        </div>
+        <div class="pipe-arrow">↓</div>
+
+        <!-- Stage 1 -->
+        <div class="pipe-card">
+          <div class="pipe-card-header">
+            <span class="pipe-tag">Stage 1</span>
+            <span class="pipe-card-title">🔍 RecSys — Track Retrieval</span>
+          </div>
+          <p>Searches the entire track catalog (~100K+ songs) and returns the top-20 most relevant track IDs. Uses either <strong>BM25</strong> (keyword-based) or <strong>BERT</strong> (semantic embedding).</p>
+          <p style="margin-top:8px; color: var(--accent2);">→ Output: <code>["track_001", "track_045", "track_112", ...]</code> (20 IDs)</p>
+        </div>
+        <div class="pipe-arrow">↓ top-1 track → look up metadata in MusicCatalogDB</div>
+
+        <!-- Stage 2 -->
+        <div class="pipe-card">
+          <div class="pipe-card-header">
+            <span class="pipe-tag teal">Stage 2</span>
+            <span class="pipe-card-title">🤖 LLM — Response Generation</span>
+          </div>
+          <p>Feeds the system prompt, full chat history, and the top-1 track's metadata into <strong>Llama-3.2-1B-Instruct</strong>. Generates a natural language reply explaining the recommendation.</p>
+          <p style="margin-top:8px; color: var(--accent2);">→ Output: <code>"Here's a timeless pick — 'Blue in Green' by Miles Davis..."</code></p>
+        </div>
+        <div class="pipe-arrow">↓</div>
+
+        <!-- Output -->
+        <div style="padding: 14px 20px; background: var(--surface2); border: 1px solid var(--success); border-radius: 10px; font-size: 13px; color: var(--text-muted);">
+          <strong style="color: var(--success);">📄 Submission JSON</strong> &nbsp;—&nbsp;
+          session_id, user_id, turn_number, predicted_track_ids (20), predicted_response
+        </div>
+      </div>
+
+      <div class="callout callout-info">
+        <span class="callout-icon">ℹ️</span>
+        <p>The top-20 track IDs are returned for <strong>RecSys evaluation</strong> (did a good track appear in the list?), while the natural language response is evaluated for <strong>NLU / dialogue quality</strong>. These are scored separately.</p>
+      </div>
+    </section>
+
+    <!-- ── Section 2: BM25 ── -->
+    <section id="bm25">
+      <h2><span class="section-num">2</span> Stage 1A — BM25 Retrieval (Sparse)</h2>
+
+      <p>
+        BM25 is a classical text-search algorithm — think of it as a very smart search engine.
+        It works by matching keywords in the user's query against a pre-built index of track metadata.
+      </p>
+
+      <div class="cards">
+        <div class="card">
+          <div class="card-icon">✅</div>
+          <h4>Strengths</h4>
+          <p>Fast, no GPU needed for retrieval. Works well when users name specific artists or songs.</p>
+        </div>
+        <div class="card">
+          <div class="card-icon">⚠️</div>
+          <h4>Weaknesses</h4>
+          <p>Pure keyword matching — misses semantic meaning. "Chill evening vibe" won't match "ambient jazz" without shared words.</p>
+        </div>
+      </div>
+
+      <h3>How the Index is Built</h3>
+      <pre><code><span class="comment"># mcrs/retrieval_modules/bm25.py — BM25_MODEL.build_index()</span>
+
+<span class="comment"># Each track becomes a text document:</span>
+<span class="var">corpus</span> = [
+    <span class="string">"track_name: Blue in Green\nartist_name: Miles Davis\nalbum_name: Kind of Blue\n"</span>,
+    <span class="string">"track_name: Autumn Leaves\nartist_name: Bill Evans\nalbum_name: Portrait in Jazz\n"</span>,
+    <span class="comment"># ... one entry per track in the catalog</span>
+]
+
+<span class="var">corpus_tokens</span> = <span class="func">bm25s.tokenize</span>(<span class="var">corpus</span>)
+<span class="var">retriever</span> = <span class="func">bm25s.BM25</span>()
+<span class="var">retriever</span>.<span class="func">index</span>(<span class="var">corpus_tokens</span>)
+<span class="var">retriever</span>.<span class="func">save</span>(<span class="string">"./cache/bm25/track_name_artist_name_album_name"</span>)</code></pre>
+
+      <h3>How Retrieval Works</h3>
+      <pre><code><span class="comment"># At inference time:</span>
+<span class="var">query</span> = <span class="string">"user: I want chill jazz\nassistant: Here's Blue in Green...\nuser: something with piano?"</span>
+<span class="var">query_tokens</span> = <span class="func">bm25s.tokenize</span>([<span class="var">query</span>.<span class="func">lower</span>()])
+<span class="var">results</span> = <span class="var">retriever</span>.<span class="func">retrieve</span>(<span class="var">query_tokens</span>, k=<span class="num">20</span>)
+<span class="comment"># → returns top-20 track IDs by BM25 score</span></code></pre>
+
+      <div class="callout callout-tip">
+        <span class="callout-icon">💡</span>
+        <p>The index is cached to disk at <code>./cache/bm25/</code>. If you change <code>corpus_types</code> in the config, delete the cache folder so it rebuilds: <code>rm -rf cache</code></p>
+      </div>
+    </section>
+
+    <!-- ── Section 3: BERT ── -->
+    <section id="bert">
+      <h2><span class="section-num">3</span> Stage 1B — BERT Retrieval (Dense)</h2>
+
+      <p>
+        BERT encodes both the query and every track as a <strong>768-dimensional vector</strong>
+        (a list of numbers representing meaning). Retrieval is done by finding the vectors
+        most similar to the query vector — this understands <em>semantics</em>, not just keywords.
+      </p>
+
+      <div class="cards">
+        <div class="card">
+          <div class="card-icon">✅</div>
+          <h4>Strengths</h4>
+          <p>Understands meaning and context. "Chill rainy evening" can match "ambient jazz" even without shared words.</p>
+        </div>
+        <div class="card">
+          <div class="card-icon">⚠️</div>
+          <h4>Weaknesses</h4>
+          <p>Slower to build index. Requires GPU for fast retrieval. <code>bert-base-uncased</code> is a relatively weak encoder.</p>
+        </div>
+      </div>
+
+      <h3>How Retrieval Works</h3>
+      <pre><code><span class="comment"># mcrs/retrieval_modules/bert.py — BERT_MODEL</span>
+
+<span class="comment"># Step 1: Encode query into a 768-dim vector</span>
+<span class="var">query_emb</span> = <span class="func">mean_pool</span>(<span class="var">bert_model</span>(<span class="var">tokenize</span>(<span class="var">query</span>)))   <span class="comment"># shape: [768]</span>
+<span class="var">query_emb</span> = <span class="func">F.normalize</span>(<span class="var">query_emb</span>, p=<span class="num">2</span>)            <span class="comment"># L2 normalize</span>
+
+<span class="comment"># Step 2: Cosine similarity against all pre-computed track embeddings</span>
+<span class="comment"># (cached as embeddings.pt — shape: [num_tracks, 768])</span>
+<span class="var">scores</span> = <span class="func">torch.matmul</span>(<span class="var">embeddings</span>, <span class="var">query_emb</span>)         <span class="comment"># [num_tracks]</span>
+<span class="var">top_indices</span> = <span class="func">torch.topk</span>(<span class="var">scores</span>, k=<span class="num">20</span>).<span class="var">indices</span>
+
+<span class="comment"># Step 3: Map indices back to track IDs</span>
+<span class="var">track_ids</span> = [<span class="var">all_track_ids</span>[<span class="var">i</span>] <span class="keyword">for</span> <span class="var">i</span> <span class="keyword">in</span> <span class="var">top_indices</span>]</code></pre>
+    </section>
+
+    <!-- ── Section 4: Index Fields ── -->
+    <section id="index">
+      <h2><span class="section-num">4</span> What Goes Into the Index</h2>
+
+      <p>
+        The <code>corpus_types</code> config field controls which track metadata fields
+        are included in the text that gets indexed. More fields = richer retrieval signal.
+      </p>
+
+      <table>
+        <thead>
+          <tr>
+            <th>Field</th>
+            <th>Example Value</th>
+            <th>Default?</th>
+            <th>Notes</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><td>track_name</td><td>"Blue in Green"</td><td>✅ Yes</td><td>Core identity of the track</td></tr>
+          <tr><td>artist_name</td><td>"Miles Davis"</td><td>✅ Yes</td><td>Most important for user queries</td></tr>
+          <tr><td>album_name</td><td>"Kind of Blue"</td><td>✅ Yes</td><td>Provides genre/era context</td></tr>
+          <tr><td>release_date</td><td>"1959-08-17"</td><td>✅ Yes</td><td>Useful for era-based queries</td></tr>
+          <tr><td>tag_list</td><td>["jazz", "piano", "chill"]</td><td>❌ No</td><td>Add to config for mood/genre retrieval</td></tr>
+        </tbody>
+      </table>
+
+      <p>Each track document fed to the index looks like this:</p>
+
+      <pre><code>track_name: Blue in Green
+artist_name: Miles Davis
+album_name: Kind of Blue
+release_date: 1959-08-17</code></pre>
+    </section>
+
+    <!-- ── Section 5: LLM ── -->
+    <section id="llm">
+      <h2><span class="section-num">5</span> Stage 2 — LLM Response Generation</h2>
+
+      <p>
+        The language model receives three inputs and generates one natural language response.
+        Under the hood it is any HuggingFace causal LM — the default is <strong>Llama-3.2-1B-Instruct</strong>.
+      </p>
+
+      <pre><code><span class="comment"># mcrs/lm_modules/llama.py — LLAMA_MODEL.response_generation()</span>
+
+<span class="comment"># Build chat template:</span>
+<span class="var">chat_data</span> = [
+    {<span class="string">"role"</span>: <span class="string">"system"</span>,    <span class="string">"content"</span>: <span class="var">sys_prompt</span>},    <span class="comment"># role + rules + (optional) user profile</span>
+    {<span class="string">"role"</span>: <span class="string">"user"</span>,      <span class="string">"content"</span>: <span class="string">"I want chill jazz..."</span>},
+    {<span class="string">"role"</span>: <span class="string">"assistant"</span>, <span class="string">"content"</span>: <span class="var">recommend_item</span>},   <span class="comment"># top-1 track metadata → primes the LLM</span>
+]
+
+<span class="comment"># Apply tokenizer chat template + generate</span>
+<span class="var">inputs</span> = <span class="var">tokenizer</span>.<span class="func">apply_chat_template</span>(<span class="var">chat_data</span>, tokenize=<span class="keyword">False</span>, add_generation_prompt=<span class="keyword">True</span>)
+<span class="var">outputs</span> = <span class="var">model</span>.<span class="func">generate</span>(<span class="var">input_ids</span>, max_new_tokens=<span class="num">512</span>)
+<span class="var">response</span> = <span class="var">tokenizer</span>.<span class="func">decode</span>(<span class="var">outputs</span>[<span class="var">input_ids</span>.<span class="var">shape</span>[<span class="num">1</span>]:])   <span class="comment"># only new tokens</span></code></pre>
+
+      <div class="callout callout-info">
+        <span class="callout-icon">🔑</span>
+        <p>
+          The <code>recommend_item</code> string is injected as an <strong>assistant turn</strong>, not a user turn.
+          This is the key trick: it primes the LLM to continue from that context, so it naturally
+          explains and expands on the given track rather than generating a random response.
+        </p>
+      </div>
+    </section>
+
+    <!-- ── Section 6: System Prompt ── -->
+    <section id="prompt">
+      <h2><span class="section-num">6</span> The System Prompt</h2>
+
+      <p>The system prompt is assembled dynamically from three text files in <code>mcrs/system_prompts/</code>:</p>
+
+      <table>
+        <thead>
+          <tr><th>File</th><th>Role</th><th>Always included?</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>roleplay.txt</td><td>Defines the assistant persona ("You are an expert music recommendation assistant...")</td><td>✅ Always</td></tr>
+          <tr><td>response_generation.txt</td><td>Formatting rules — how to structure the recommendation response</td><td>✅ Always</td></tr>
+          <tr><td>personalization.txt</td><td>Injection template for user profile data</td><td>Only if user_id is provided</td></tr>
+        </tbody>
+      </table>
+
+      <pre><code><span class="comment"># mcrs/crs_baseline.py — _get_system_prompt()</span>
+
+<span class="var">system_prompt</span> = <span class="var">role_prompt</span>[<span class="string">"role_play"</span>] + <span class="var">role_prompt</span>[<span class="string">"response_generation"</span>]
+
+<span class="keyword">if</span> <span class="var">user_id</span>:
+    <span class="var">profile</span> = <span class="var">user_db</span>.<span class="func">id_to_profile_str</span>(<span class="var">user_id</span>)
+    <span class="comment"># → "user_id: 42\nage_group: 25-34\ngender: F\ncountry_name: South Korea"</span>
+    <span class="var">system_prompt</span> += <span class="var">role_prompt</span>[<span class="string">"personalization"</span>] + <span class="string">'\n'</span> + <span class="var">profile</span></code></pre>
+    </section>
+
+    <!-- ── Section 7: Multi-turn ── -->
+    <section id="multiturn">
+      <h2><span class="section-num">7</span> Multi-Turn Conversations</h2>
+
+      <p>
+        Every session contains exactly <strong>8 turns</strong>. The inference scripts process
+        all 8 turns for each session, with each turn's prediction being independent
+        (using only history up to that point).
+      </p>
+
+      <div class="timeline">
+        <div class="tl-item">
+          <div class="tl-turn">Turn 1 — history: empty</div>
+          <div class="tl-content">
+            🧑 User: "I want chill jazz for a rainy evening"<br>
+            🤖 Retrieval input: <em>"user: I want chill jazz for a rainy evening"</em>
+          </div>
+        </div>
+        <div class="tl-item">
+          <div class="tl-turn">Turn 2 — history: [turn 1]</div>
+          <div class="tl-content">
+            🧑 User: "I like that, something with more piano?"<br>
+            🤖 Retrieval input: <em>"user: I want chill jazz...\nassistant: Here's Blue in Green...\nuser: something with more piano?"</em>
+          </div>
+        </div>
+        <div class="tl-item">
+          <div class="tl-turn">Turns 3–8 — history grows with each turn</div>
+          <div class="tl-content">
+            Retrieval sees the <em>full conversation</em> as one text block — so later turns
+            benefit from all prior context, enabling progressive preference refinement.
+          </div>
+        </div>
+      </div>
+
+      <div class="callout callout-warning">
+        <span class="callout-icon">⚠️</span>
+        <p>
+          Every submission file must contain predictions for <strong>all 8 turns of every session</strong>.
+          Missing turns will cause evaluation errors. The inference scripts handle this automatically
+          via <code>for target_turn_number in range(1, 9)</code>.
+        </p>
+      </div>
+    </section>
+
+    <!-- ── Section 8: Output Format ── -->
+    <section id="output">
+      <h2><span class="section-num">8</span> Output JSON Format</h2>
+
+      <p>Each turn produces one record. The final file is a JSON array of these records:</p>
+
+      <div class="json-block">
+        [<br>
+        &nbsp;&nbsp;{<br>
+        &nbsp;&nbsp;&nbsp;&nbsp;<span class="json-key">"session_id"</span>: <span class="json-str">"sess_abc123"</span>,&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="json-comment">// unique session identifier</span><br>
+        &nbsp;&nbsp;&nbsp;&nbsp;<span class="json-key">"user_id"</span>: <span class="json-str">"user_42"</span>,&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="json-comment">// user for personalization</span><br>
+        &nbsp;&nbsp;&nbsp;&nbsp;<span class="json-key">"turn_number"</span>: <span class="json-num">3</span>,&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="json-comment">// integer 1–8</span><br>
+        &nbsp;&nbsp;&nbsp;&nbsp;<span class="json-key">"predicted_track_ids"</span>: [&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="json-comment">// top-20 for RecSys eval</span><br>
+        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="json-str">"track_001"</span>, <span class="json-str">"track_045"</span>, <span class="json-arr">...</span><br>
+        &nbsp;&nbsp;&nbsp;&nbsp;],<br>
+        &nbsp;&nbsp;&nbsp;&nbsp;<span class="json-key">"predicted_response"</span>: <span class="json-str">"Here's a wonderful pick..."</span>&nbsp;<span class="json-comment">// LLM output for NLU eval</span><br>
+        &nbsp;&nbsp;},<br>
+        &nbsp;&nbsp;<span class="json-comment">// ... one object per turn per session</span><br>
+        ]
+      </div>
+
+      <table style="margin-top: 20px;">
+        <thead><tr><th>Field</th><th>Type</th><th>Required</th><th>Notes</th></tr></thead>
+        <tbody>
+          <tr><td>session_id</td><td>string</td><td>✅</td><td>Must match the dataset</td></tr>
+          <tr><td>user_id</td><td>string</td><td>✅</td><td>Must match the dataset</td></tr>
+          <tr><td>turn_number</td><td>int</td><td>✅</td><td>1 through 8 inclusive</td></tr>
+          <tr><td>predicted_track_ids</td><td>list[str]</td><td>✅</td><td>Exactly 20 IDs for full credit</td></tr>
+          <tr><td>predicted_response</td><td>string</td><td>✅</td><td>Can be <code>""</code> for retrieval-only runs</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <!-- ── Section 9: Improve ── -->
+    <section id="improve">
+      <h2><span class="section-num">9</span> How to Improve the Baseline</h2>
+
+      <p>The baseline is intentionally simple. Here are the highest-impact directions to explore:</p>
+
+      <table>
+        <thead>
+          <tr><th>Improvement</th><th>Difficulty</th><th>Where</th><th>Expected Impact</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Add <code>tag_list</code> to corpus_types</td>
+            <td><span class="improve-tag tag-easy">Easy</span></td>
+            <td>Config YAML only</td>
+            <td>Better mood/genre retrieval</td>
+          </tr>
+          <tr>
+            <td>Swap BM25 → BERT retrieval</td>
+            <td><span class="improve-tag tag-easy">Easy</span></td>
+            <td>Config YAML only</td>
+            <td>Semantic query understanding</td>
+          </tr>
+          <tr>
+            <td>Swap Llama-1B → Qwen-4B</td>
+            <td><span class="improve-tag tag-easy">Easy</span></td>
+            <td>Config YAML only</td>
+            <td>Richer, more coherent responses</td>
+          </tr>
+          <tr>
+            <td>Use E5/BGE instead of bert-base</td>
+            <td><span class="improve-tag tag-medium">Medium</span></td>
+            <td>bert.py model_name param</td>
+            <td>Much stronger dense retrieval</td>
+          </tr>
+          <tr>
+            <td>Add an LLM reranker after retrieval</td>
+            <td><span class="improve-tag tag-medium">Medium</span></td>
+            <td>crs_baseline.py pipeline</td>
+            <td>Better top-1 selection for LLM</td>
+          </tr>
+          <tr>
+            <td>Embedding-based personalized reranking</td>
+            <td><span class="improve-tag tag-medium">Medium</span></td>
+            <td>New reranker module</td>
+            <td>User-specific track ordering</td>
+          </tr>
+          <tr>
+            <td>Generative retrieval with semantic IDs</td>
+            <td><span class="improve-tag tag-hard">Hard</span></td>
+            <td>Full new module + fine-tuning</td>
+            <td>End-to-end unified architecture</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <div class="callout callout-tip">
+        <span class="callout-icon">📂</span>
+        <p>See the <code>tips/</code> folder in the repository for detailed guides on each improvement direction: <code>improve_item_representation.md</code>, <code>add_reranker.md</code>, and <code>use_genrec_semantic_ids.md</code>.</p>
+      </div>
+    </section>
+
+    <!-- Footer -->
+    <footer>
+      <span>Music CRS Baselines — RecSys Challenge 2026</span>
+      <span>Generated: 2026-05-09 &nbsp;·&nbsp; <code>mcrs</code> v0.1.0</span>
+    </footer>
+
+  </main>
+</div>
+
+</body>
+</html>

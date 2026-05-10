@@ -1,0 +1,9 @@
+.venv
+cache/
+exp/
+__pycache__/
+*.egg-info/
+*.pyc
+uv.lock
+inference/
+models/
