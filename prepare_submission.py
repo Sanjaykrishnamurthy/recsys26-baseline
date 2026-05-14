@@ -186,7 +186,9 @@ def main(args: argparse.Namespace) -> None:
         return
 
     # ── Write prediction.json ─────────────────────────────────────────────────
-    pred_path = os.path.join(os.path.dirname(args.output), "prediction.json")
+    out_dir = os.path.dirname(os.path.abspath(args.output))
+    os.makedirs(out_dir, exist_ok=True)
+    pred_path = os.path.join(out_dir, "prediction.json")
     with open(pred_path, "w", encoding="utf-8") as f:
         json.dump(cleaned, f, ensure_ascii=False, indent=2)
     print(f"\nWrote prediction.json → '{pred_path}'")
@@ -213,8 +215,8 @@ if __name__ == "__main__":
     parser.add_argument(
         "--output",
         type=str,
-        default="submission.zip",
-        help="Path for the output zip file (default: submission.zip)",
+        default="submissions/submission.zip",
+        help="Path for the output zip file (default: submissions/submission.zip)",
     )
     parser.add_argument(
         "--dry-run",

@@ -42,3 +42,8 @@ data/
 .env
 .env.local
 
+# Submission artifacts (packaged locally, never commit)
+submissions/
+prediction.json
+submission.zip
+
