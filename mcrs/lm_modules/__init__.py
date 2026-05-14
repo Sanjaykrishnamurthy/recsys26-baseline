@@ -1,5 +1,6 @@
 from .llama import LLAMA_MODEL
 from .ollama_lm import OLLAMA_MODEL
+from .null_lm import NULL_LM
 
 def load_lm_module(lm_type, device, attn_implementation, dtype):
     """Factory that loads any HuggingFace causal LM via LLAMA_MODEL.
@@ -18,6 +19,10 @@ def load_lm_module(lm_type, device, attn_implementation, dtype):
     Returns:
         An initialised LLAMA_MODEL instance wrapping the requested model.
     """
+    # Retrieval-only mode — no LM loaded, responses are always empty strings
+    if lm_type == "none":
+        return NULL_LM()
+
     # Ollama models are prefixed with "ollama:" e.g. "ollama:llama3.2:1b"
     if lm_type.startswith("ollama:"):
         ollama_model_name = lm_type[len("ollama:"):]

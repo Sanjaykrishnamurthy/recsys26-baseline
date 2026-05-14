@@ -7,7 +7,8 @@ subsequent reuse.
 import os
 import json
 import bm25s
-from datasets import load_dataset, concatenate_datasets
+from datasets import concatenate_datasets
+from mcrs.utils import load_local_or_hf_dataset
 
 
 class BM25_MODEL:
@@ -55,7 +56,7 @@ class BM25_MODEL:
         Returns:
             A mapping from `track_id` to its metadata dictionary.
         """
-        metadata_dataset = load_dataset(self.dataset_name)
+        metadata_dataset = load_local_or_hf_dataset(self.dataset_name)
         metadata_concat_dataset = concatenate_datasets([metadata_dataset[split_type] for split_type in self.split_types])
         metadata_dict = {item["track_id"]: item for item in metadata_concat_dataset}
         return metadata_dict

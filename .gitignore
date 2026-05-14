@@ -1,9 +1,44 @@
-.venv
+# Virtual environment
+.venv/
+
+# Runtime caches (BM25 index, BERT embeddings)
 cache/
+
+# Inference outputs
 exp/
+
+# Python artifacts
 __pycache__/
 *.egg-info/
 *.pyc
+*.pyo
+*.pyd
+.Python
+
+# Package manager
 uv.lock
+
+# Legacy / unused
 inference/
+
+# Downloaded model weights
 models/
+
+# Local datasets (parquet files downloaded from HuggingFace)
+data/
+
+# macOS system files
+.DS_Store
+**/.DS_Store
+
+# VS Code
+.vscode/
+
+# Jupyter
+.ipynb_checkpoints/
+*.ipynb
+
+# Environment variables
+.env
+.env.local
+

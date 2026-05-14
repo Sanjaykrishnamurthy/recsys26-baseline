@@ -1,0 +1,19 @@
+lm_type: "none"
+retrieval_type: "bert"
+test_dataset_name: "./data/raw/TalkPlayData-Challenge-Dataset"
+item_db_name: "./data/raw/TalkPlayData-Challenge-Track-Metadata"
+user_db_name: "./data/raw/TalkPlayData-Challenge-User-Metadata"
+track_split_types:
+  - "all_tracks"
+user_split_types:
+  - "all_users"
+corpus_types:
+  - "track_name"
+  - "artist_name"
+  - "album_name"
+  - "release_date"
+  - "tag_list"
+cache_dir: "./cache"
+device: "mps"
+attn_implementation: "eager"
+use_user_reranker: false

@@ -1,14 +1,15 @@
 import os
 import json
 import random
-from datasets import load_dataset, concatenate_datasets
+from datasets import concatenate_datasets
+from mcrs.utils import load_local_or_hf_dataset
 
 class UserProfileDB:
     def __init__(self,
             dataset_name: str,
             split_types: list[str],
         ):
-        metadata_dataset = load_dataset(dataset_name)
+        metadata_dataset = load_local_or_hf_dataset(dataset_name)
         metadata_concat_dataset = concatenate_datasets([metadata_dataset[split_type] for split_type in split_types])
         self.default_columns = ['user_id', 'age_group', 'gender', 'country_name']
         self.user_profiles = {item["user_id"]: item for item in metadata_concat_dataset}

@@ -7,7 +7,7 @@ import json
 import torch
 import argparse
 from mcrs import load_crs_baseline
-from datasets import load_dataset
+from mcrs.utils import load_local_or_hf_dataset
 from tqdm import tqdm
 from typing import List, Dict, Any, Tuple
 import pandas as pd
@@ -84,7 +84,7 @@ def main(args):
         dtype=torch.bfloat16,
         use_user_reranker=getattr(config, "use_user_reranker", False),
     )
-    db = load_dataset(config.test_dataset_name, split="test")
+    db = load_local_or_hf_dataset(config.test_dataset_name)["test"]
     # Prepare all batch data at once
     batch_data, metadata = [], []
     for item in db:
