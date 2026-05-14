@@ -109,13 +109,18 @@ def validate_and_clean(records: list[dict]) -> tuple[list[dict], list[str]]:
 
 
 def check_coverage(records: list[dict]) -> list[str]:
-    """Warn about sessions that don't have all 8 turns covered.
+    """Warn about coverage gaps for sessions that have multiple predictions.
+
+    For blind-set submissions each session typically appears once at a specific
+    turn (the conversation stage exposed to participants).  Single-turn sessions
+    are NOT flagged — only sessions that have more than one prediction but are
+    still missing some turns in the covered range get a warning.
 
     Args:
         records: Cleaned prediction records.
 
     Returns:
-        List of warning strings (empty if fully covered).
+        List of warning strings (empty if no gaps detected).
     """
     session_turns: dict[str, set] = defaultdict(set)
     for rec in records:
@@ -123,10 +128,16 @@ def check_coverage(records: list[dict]) -> list[str]:
 
     warnings = []
     for session_id, turns in session_turns.items():
-        missing = VALID_TURNS - turns
+        if len(turns) <= 1:
+            # Single prediction per session — blind-set style, no gap to check.
+            continue
+        # Multi-turn session: warn if any turn between min and max is absent.
+        span = set(range(min(turns), max(turns) + 1))
+        missing = span - turns
         if missing:
             warnings.append(
-                f"Session '{session_id}': missing turns {sorted(missing)}"
+                f"Session '{session_id}': has turns {sorted(turns)} "
+                f"but missing {sorted(missing)} within that range"
             )
     return warnings
 
@@ -154,6 +165,16 @@ def main(args: argparse.Namespace) -> None:
             print(f"   • {w}")
     else:
         print("✅  All records passed validation — no issues found.")
+
+    # Coverage note: blind-set submissions have one prediction per session at
+    # the exposed turn — that is expected and not a gap.
+    n_single = sum(1 for r in cleaned if True)  # total records
+    multi_session_count = sum(
+        1 for sid in {r["session_id"] for r in cleaned}
+        if sum(1 for r in cleaned if r["session_id"] == sid) > 1
+    )
+    if multi_session_count == 0:
+        print("ℹ️  Blind-set mode: each session has one prediction (single-turn evaluation).")
 
     print(f"\nSummary:")
     print(f"   Total records  : {len(cleaned)}")
