@@ -4,27 +4,40 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "mcrs"
-version = "0.1.0"
+version = "0.2.0"
 authors = [
     { name = "Music CRS Baselines Team" },
 ]
-description = "Music Conversational Recommender System Baselines"
-readme = "README.md"
-requires-python = ">=3.8"
+description = "Music Conversational Recommender System Baselines — RecSys Challenge 2026"
+readme = "readme.md"
+requires-python = ">=3.10"
 classifiers = [
     "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
     "Operating System :: OS Independent",
 ]
 dependencies = [
     "bm25s>=0.2.13",
     "datasets>=3.1.0",
     "omegaconf>=2.3.0",
+    "pandas>=2.0.0",
     "psutil>=7.2.2",
     "torch>=2.5.1",
-    "torchaudio>=2.5.1",
-    "torchvision>=0.20.1",
+    "tqdm>=4.66.0",
     "transformers>=4.46.3",
 ]
 
-[tool.setuptools]
-packages = ["mcrs"]
+[project.optional-dependencies]
+full = [
+    "torchaudio>=2.5.1",
+    "torchvision>=0.20.1",
+    "flash-attn>=2.5.0",
+]
+
+[tool.setuptools.packages.find]
+include = ["mcrs*"]
+
+[tool.setuptools.package-data]
+mcrs = ["system_prompts/*.txt"]

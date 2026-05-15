@@ -1,36 +1,42 @@
 import os
 import json
 import random
-from datasets import load_dataset, concatenate_datasets
+from mcrs.utils import load_local_or_hf_dataset
 from tqdm import tqdm
 
-def load_track_pools():
-    """
-    Load all available track IDs from the TalkPlayData track metadata dataset.
+# Default dataset IDs — override with local paths if needed
+TRACK_DB = os.environ.get("MCRS_TRACK_DB", "talkpl-ai/TalkPlayData-Challenge-Track-Metadata")
+TEST_DB = os.environ.get("MCRS_TEST_DB", "talkpl-ai/TalkPlayData-Challenge-Dataset")
+
+
+def load_track_pools(dataset_name: str = TRACK_DB) -> list[str]:
+    """Load all available track IDs from the track metadata dataset.
+
+    Args:
+        dataset_name: HF dataset ID or local path.
+
     Returns:
-        list[str]: A list of all track IDs available in the dataset.
+        A list of all track IDs available in the dataset.
     """
-    db = load_dataset("talkpl-ai/TalkPlayData-Challenge-Track-Metadata", split="all_tracks")
+    db = load_local_or_hf_dataset(dataset_name)["all_tracks"]
     track_ids = list(db['track_id'])
     return track_ids
 
+
 def main():
-    """
-    Generate random baseline predictions for music recommendation evaluation.
-    This function loads the test dataset and generates random track recommendations
-    for each session and turn number (1-8). For each turn, it randomly samples 20
-    tracks from the available track pool. Results are saved to 'exp/random_sample.json'.
-    The output format includes:
-        - session_id: Unique identifier for the conversation session
-        - user_id: Unique identifier for the user
-        - turn_number: Turn number in the conversation (1-8)
-        - predicted_track_ids: List of 20 randomly sampled track IDs
-        - predicted_response: Empty string (no text response for this baseline)
-    Returns:
-        None: Results are written to 'exp/random_sample.json'.
+    """Generate random baseline predictions for music recommendation evaluation.
+
+    For each test session × 8 turns, randomly samples 20 tracks from the full
+    track pool.  Results are saved to ``exp/inference/random.json``.
+
+    Supports local data via environment variables::
+
+        MCRS_TRACK_DB=./data/raw/TalkPlayData-Challenge-Track-Metadata \\
+        MCRS_TEST_DB=./data/raw/TalkPlayData-Challenge-Dataset \\
+        python lowerbound/random_sample.py
     """
     track_pools = load_track_pools()
-    db = load_dataset("talkpl-ai/TalkPlayData-Challenge-Dataset", split="test")
+    db = load_local_or_hf_dataset(TEST_DB)["test"]
     inference_results = []
     for item in tqdm(db):
         user_id = item['user_id']

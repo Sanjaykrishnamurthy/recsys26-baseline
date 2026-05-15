@@ -2,11 +2,23 @@ import os
 import json
 import random
 from collections import Counter
-from datasets import load_dataset, concatenate_datasets
+from mcrs.utils import load_local_or_hf_dataset
 from tqdm import tqdm
 
-def load_popularity_track():
-    db = load_dataset("talkpl-ai/TalkPlayData-Challenge-Dataset", split="train")
+# Default dataset IDs — override with local paths if needed
+TEST_DB = os.environ.get("MCRS_TEST_DB", "talkpl-ai/TalkPlayData-Challenge-Dataset")
+
+
+def load_popularity_track(dataset_name: str = TEST_DB) -> list[str]:
+    """Load the top-20 most popular tracks from the training split.
+
+    Args:
+        dataset_name: HF dataset ID or local path.
+
+    Returns:
+        List of 20 track IDs ordered by popularity (most common first).
+    """
+    db = load_local_or_hf_dataset(dataset_name)["train"]
     track_ids = []
     for item in db:
         conversations = item['conversations']
@@ -19,7 +31,7 @@ def load_popularity_track():
 
 def main():
     popularity_track_ids = load_popularity_track()
-    db = load_dataset("talkpl-ai/TalkPlayData-Challenge-Dataset", split="test")
+    db = load_local_or_hf_dataset(TEST_DB)["test"]
     inference_results = []
     for item in tqdm(db):
         user_id = item['user_id']
