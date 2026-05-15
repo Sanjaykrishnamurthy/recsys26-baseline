@@ -7,7 +7,7 @@
 
 ## Overview
 
-`prepare_submission.py` takes the raw JSON produced by `run_inference_blindset.py`, validates it against the official competition rules, and packages it as `submission.zip` containing a single file named `prediction.json`.
+`prepare_submission.py` takes the raw JSON produced by `run_inference_blindset.py`, validates it against the official competition rules, and packages it as `submission.zip` containing a single file named `predictions.json`.
 
 ---
 
@@ -81,8 +81,8 @@ For each record:
 
 ### 4. Write
 
-- Creates `prediction.json` in the output directory
-- Zips it as `submission.zip` with the archive name `prediction.json`
+- Creates `predictions.json` in the output directory
+- Zips it as `submission.zip` with the archive name `predictions.json`
 
 ---
 
@@ -142,7 +142,7 @@ Summary:
    Unique sessions: 80
    Turns covered  : [1, 2, 3, 4, 5, 6, 7, 8]
 
-Wrote prediction.json → '/path/to/submissions/prediction.json'
+Wrote predictions.json → '/path/to/submissions/predictions.json'
 Created 'submissions/submission.zip' (0.0 MB)
 
 🎉  submission.zip is ready to upload!
@@ -176,8 +176,8 @@ Summary:
 
 ```
 submissions/
-├── prediction.json     ← cleaned JSON (human-readable, indent=2)
-└── submission.zip      ← competition upload (contains prediction.json)
+├── predictions.json     ← cleaned JSON (human-readable, indent=2)
+└── submission.zip      ← competition upload (contains predictions.json)
 ```
 
 Both files are git-ignored via `.gitignore`.

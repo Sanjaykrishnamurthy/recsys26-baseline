@@ -44,6 +44,6 @@ data/
 
 # Submission artifacts (packaged locally, never commit)
 submissions/
-prediction.json
+predictions.json
 submission.zip
 

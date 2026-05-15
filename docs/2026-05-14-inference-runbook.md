@@ -273,7 +273,7 @@ The packager enforces all competition rules automatically:
 - Deduplicates `predicted_track_ids` (preserving ranking order)
 - Truncates to 20 track IDs
 - Validates required fields (`session_id`, `user_id`, `turn_number`, `predicted_track_ids`, `predicted_response`)
-- Writes `prediction.json` inside `submission.zip`
+- Writes `predictions.json` inside `submission.zip`
 
 **Expected output (BM25 blind set A, retrieval-only):**
 ```
