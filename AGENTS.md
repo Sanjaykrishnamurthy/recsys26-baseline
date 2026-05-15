@@ -364,6 +364,21 @@ User profile fields: `user_id`, `age_group`, `gender`, `country_name`
 
 ---
 
+## Documentation Rules
+
+- **"Document" always means**: create a `.md` file inside the `docs/` folder
+- **Filename convention**: prepend today's date → `docs/YYYY-MM-DD-<descriptive-slug>.md`
+- **Auto-document on major changes**: whenever a significant feature, script, or architecture change is made, always create a corresponding doc in `docs/` with the date prefix. Do not wait to be asked.
+- **Existing docs**: update the relevant existing doc if the change modifies something already documented; create a new doc if it's a new topic
+- **Examples**:
+  - `docs/2026-05-09-how-the-baseline-works.html` — architecture overview
+  - `docs/2026-05-14-inference-runbook.md` — running inference locally
+  - `docs/2026-05-14-kaggle-gpu-setup.md` — Kaggle GPU setup
+  - `docs/2026-05-15-execution-guide.md` — local + remote execution
+  - `docs/2026-05-15-prepare-submission.md` — submission packaging
+
+---
+
 ## Common Pitfalls
 
 | Symptom | Likely Cause | Fix |
