@@ -1,12 +1,12 @@
-# Kaggle GPU — Llama 3.2 1B + BM25 — Dev Set (for scoring before blind submission)
+# Kaggle GPU — Llama 3.2 1B + BM25 — Dev Set
 #
 # Prerequisites: same as kaggle_llama1b_bm25_blindset_A.yaml
 
 lm_type: "/kaggle/input/llama-3.2/transformers/1b-instruct/1"
 retrieval_type: "bm25"
-test_dataset_name: "talkpl-ai/TalkPlayData-Challenge-Dataset"
-item_db_name: "talkpl-ai/TalkPlayData-Challenge-Track-Metadata"
-user_db_name: "talkpl-ai/TalkPlayData-Challenge-User-Metadata"
+test_dataset_name: "/kaggle/input/talkplaydata-new/data/raw/TalkPlayData-Challenge-Dataset"
+item_db_name: "/kaggle/input/talkplaydata-new/data/raw/TalkPlayData-Challenge-Track-Metadata"
+user_db_name: "/kaggle/input/talkplaydata-new/data/raw/TalkPlayData-Challenge-User-Metadata"
 track_split_types:
   - "all_tracks"
 user_split_types:

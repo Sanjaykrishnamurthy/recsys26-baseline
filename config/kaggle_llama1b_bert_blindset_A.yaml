@@ -2,16 +2,15 @@
 #
 # Prerequisites in your Kaggle notebook:
 #   1. Add Model: Meta → Llama 3.2 → Transformers → 1B Instruct
-#      (mounted at /kaggle/input/llama-3.2/transformers/1b-instruct/1)
-#   2. Add Dataset: your uploaded TalkPlay parquet datasets
-#      (or set HF_TOKEN secret and use Hub IDs below)
+#   2. Add Dataset: TalkPlayData_New (your uploaded parquet data)
 #   3. Enable GPU accelerator (T4 x2 or P100)
+#   4. Internet: On (for pip install)
 
 lm_type: "/kaggle/input/llama-3.2/transformers/1b-instruct/1"
 retrieval_type: "bert"
-test_dataset_name: "talkpl-ai/TalkPlayData-Challenge-Blind-A"
-item_db_name: "talkpl-ai/TalkPlayData-Challenge-Track-Metadata"
-user_db_name: "talkpl-ai/TalkPlayData-Challenge-User-Metadata"
+test_dataset_name: "/kaggle/input/talkplaydata-new/data/raw/TalkPlayData-Challenge-Blind-A"
+item_db_name: "/kaggle/input/talkplaydata-new/data/raw/TalkPlayData-Challenge-Track-Metadata"
+user_db_name: "/kaggle/input/talkplaydata-new/data/raw/TalkPlayData-Challenge-User-Metadata"
 track_split_types:
   - "all_tracks"
 user_split_types:
