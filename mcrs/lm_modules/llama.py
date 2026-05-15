@@ -2,6 +2,9 @@ import os
 import torch
 from transformers import AutoTokenizer, AutoModelForCausalLM
 
+# Reduce CUDA memory fragmentation on multi-GPU setups
+os.environ.setdefault("PYTORCH_CUDA_ALLOC_CONF", "expandable_segments:True")
+
 class LLAMA_MODEL:
     def __init__(self, model_name="meta-llama/Llama-3.2-1B-Instruct", device="cuda", attn_implementation="eager", dtype=torch.bfloat16):
         self.model_name = model_name
@@ -15,7 +18,18 @@ class LLAMA_MODEL:
         self.attn_implementation = attn_implementation
         self.lm, self.tokenizer = self._load_model()
         self.lm.eval()
-        self.lm.to(self.device).to(self.dtype)
+        # When device_map="auto" is used, the model is already distributed
+        # across available GPUs. Do NOT call .to(device) — that overrides
+        # the placement and moves everything onto a single GPU.
+
+    @property
+    def input_device(self):
+        """Return the device of the model's first parameter.
+
+        With device_map="auto" the model may span multiple GPUs.
+        Inputs must be sent to the device where the first layer lives.
+        """
+        return next(self.lm.parameters()).device
 
     def _load_model(self):
         tokenizer = AutoTokenizer.from_pretrained(self.model_name, padding_side="left")
@@ -24,6 +38,7 @@ class LLAMA_MODEL:
             attn_implementation=self.attn_implementation,
             torch_dtype=self.dtype,
             low_cpu_mem_usage=True,
+            device_map="auto",
         )
         return lm, tokenizer
 
@@ -34,14 +49,16 @@ class LLAMA_MODEL:
         chat_template = self.tokenizer.apply_chat_template(chat_data, tokenize=False, add_generation_prompt=True)
         return chat_template
 
-    def response_generation(self, sys_prompt: str, chat_history: list, recommend_item: str,max_new_tokens=512, response_format=None):
+    def response_generation(self, sys_prompt: str, chat_history: list, recommend_item: str, max_new_tokens=128, response_format=None):
         chat_history = self._format_chat_history(sys_prompt, chat_history, recommend_item)
-        token_inputs = self.tokenizer(chat_history, return_tensors="pt")
-        input_ids = token_inputs.input_ids.to(self.device)
-        attention_mask = token_inputs.attention_mask.to(self.device)
+        token_inputs = self.tokenizer(chat_history, return_tensors="pt", truncation=True, max_length=2048)
+        target_device = self.input_device
+        input_ids = token_inputs.input_ids.to(target_device)
+        attention_mask = token_inputs.attention_mask.to(target_device)
         with torch.no_grad():
             outputs = self.lm.generate(input_ids, attention_mask=attention_mask, max_new_tokens=max_new_tokens)
         generated_text = self.tokenizer.batch_decode(outputs[:,input_ids.shape[1]:], skip_special_tokens=True)[0]
+        torch.cuda.empty_cache()
         return generated_text
 
     def batch_response_generation(self, sys_prompts: list[str], chat_histories: list[list], recommend_items: list[str], max_new_tokens=64):
@@ -73,8 +90,9 @@ class LLAMA_MODEL:
             truncation=True,
             max_length=2048,
         )
-        input_ids = token_inputs.input_ids.to(self.device)
-        attention_mask = token_inputs.attention_mask.to(self.device)
+        target_device = self.input_device
+        input_ids = token_inputs.input_ids.to(target_device)
+        attention_mask = token_inputs.attention_mask.to(target_device)
 
         with torch.no_grad():
             outputs = self.lm.generate(
@@ -86,4 +104,5 @@ class LLAMA_MODEL:
 
         # Decode only the newly generated tokens
         generated_texts = self.tokenizer.batch_decode(outputs[:,input_ids.shape[1]:], skip_special_tokens=True)
+        torch.cuda.empty_cache()
         return generated_texts

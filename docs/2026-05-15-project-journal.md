@@ -21,6 +21,7 @@
   - [Hiccup #7: Kaggle Llama Model — PyTorch vs Transformers Format](#hiccup-7-kaggle-llama-model--pytorch-vs-transformers-format)
   - [Hiccup #8: CUDA Out-of-Memory on Kaggle T4 GPU](#hiccup-8-cuda-out-of-memory-on-kaggle-t4-gpu)
   - [Hiccup #9: GitHub Push Auth Expires on Corporate Network](#hiccup-9-github-push-auth-expires-on-corporate-network)
+  - [Hiccup #10: `device_map="auto"` Nullified by `.to(device)` — Second GPU Empty](#hiccup-10-device_mapauto-nullified-by-todevice--second-gpu-empty)
 - [Lessons Learned](#lessons-learned)
 
 ---
@@ -394,6 +395,83 @@ The GitHub Personal Access Token (PAT) cached in the macOS credential helper had
 
 ---
 
+### Hiccup #10: `device_map="auto"` Nullified by `.to(device)` — Second GPU Empty
+
+**What happened:**  
+After applying the Hiccup #8 OOM fixes (float16, truncation, `low_cpu_mem_usage`), the T4 x2 Kaggle setup still OOM'd:
+
+```
+torch.OutOfMemoryError: CUDA out of memory.
+Tried to allocate 430.00 MiB.
+GPU 0 has a total capacity of 14.56 GiB of which 407.81 MiB is free.
+```
+
+The key clue: **GPU 0 had 14.16 GiB in use, but GPU 1 was completely empty.** Kaggle provides two T4 GPUs (2 × 14.56 GiB = ~29 GiB total), but the model was only on one.
+
+**Root cause — `.to(device)` undoes `device_map="auto"`:**
+
+```python
+# In _load_model():
+lm = AutoModelForCausalLM.from_pretrained(
+    ...,
+    device_map="auto",    # ✅ Distributes model across GPU 0 + GPU 1
+)
+
+# In __init__(), immediately after:
+self.lm.to(self.device)   # ❌ MOVES EVERYTHING BACK TO GPU 0!
+```
+
+When HuggingFace's `device_map="auto"` is used, it assigns each layer to a device based on available memory. But calling `.to("cuda")` afterwards overrides all placements and moves every parameter to `cuda:0`. The second GPU stays empty.
+
+**Additional issues found:**
+
+1. **Hardcoded `self.device` for input tensors** — `input_ids.to(self.device)` sent inputs to `"cuda"` (= `cuda:0`), but with `device_map="auto"` the model's first layer might be on any device.
+
+2. **No CUDA cache cleanup** — Without `torch.cuda.empty_cache()` between generations, VRAM fragmentation accumulated over 80 inference calls.
+
+3. **`max_new_tokens=512` for single inference** — way more tokens than needed for a music recommendation response, wasting KV cache memory.
+
+4. **Missing `accelerate` dependency** — `device_map="auto"` silently requires the `accelerate` library. Without it, the model loads onto a single device.
+
+**Fix — five changes:**
+
+```python
+# 1. REMOVED: self.lm.to(self.device).to(self.dtype)
+# The model is already placed correctly by device_map="auto"
+
+# 2. Added input_device property to find the model's actual first device
+@property
+def input_device(self):
+    return next(self.lm.parameters()).device
+
+# 3. Use input_device for tensor placement (not self.device)
+target_device = self.input_device
+input_ids = token_inputs.input_ids.to(target_device)
+
+# 4. Clear VRAM after each generation to reduce fragmentation
+torch.cuda.empty_cache()
+
+# 5. Set PYTORCH_CUDA_ALLOC_CONF at module level
+os.environ.setdefault("PYTORCH_CUDA_ALLOC_CONF", "expandable_segments:True")
+```
+
+Also added `accelerate>=0.26.0` to `pyproject.toml` dependencies and reduced `max_new_tokens` from 512 to 128 for single-sample inference.
+
+**Why `device_map="auto"` + `accelerate` works:**
+
+| Layer Group | GPU 0 | GPU 1 |
+|------------|-------|-------|
+| Embedding + layers 0–11 | ✅ | |
+| Layers 12–22 + LM head | | ✅ |
+| **VRAM per GPU** | **~7–8 GB** | **~7–8 GB** |
+| **Free per GPU** | **~6–7 GB** | **~6–7 GB** |
+
+With ~13 GB free across both GPUs for KV cache + activations + batch tensors, inference with `batch_size=2` fits comfortably.
+
+**Lesson:** `device_map="auto"` and `.to(device)` are mutually exclusive strategies. If you use `device_map="auto"`, never call `.to()` on the model afterwards — it undoes the distribution. And always check that `accelerate` is installed, since `device_map` is a no-op without it.
+
+---
+
 ## Lessons Learned
 
 ### Environment & Infrastructure
@@ -418,7 +496,11 @@ The GitHub Personal Access Token (PAT) cached in the macOS credential helper had
 
 8. **`low_cpu_mem_usage=True` is free performance** — Loads model weights sequentially instead of all at once. No quality impact, lower peak memory.
 
-9. **batch_size=1 is fine for inference** — On constrained GPUs, reducing batch size is the simplest OOM fix. The quality is identical; only wall-clock time increases.
+9. **batch_size=1 or 2 is fine for inference** — On constrained GPUs, reducing batch size is the simplest OOM fix. The quality is identical; only wall-clock time increases.
+
+10. **`device_map="auto"` and `.to(device)` are enemies** — If you use `device_map="auto"` to distribute a model across multiple GPUs, calling `.to("cuda")` afterwards moves everything back to a single GPU. Always use `next(model.parameters()).device` to find where to send inputs.
+
+11. **`accelerate` is a silent dependency** — `device_map="auto"` in Transformers requires the `accelerate` library. Without it, the model loads onto a single device with no warning. Always add it to your dependencies explicitly.
 
 ### Competition-Specific
 
@@ -426,7 +508,7 @@ The GitHub Personal Access Token (PAT) cached in the macOS credential helper had
 
 11. **Understand your evaluation data** — The blind set has 1 turn per session (not 8). Building validation logic without understanding this structure generated 80 false warnings that looked like real errors.
 
-12. **Cache invalidation is real** — Changed `corpus_types` but forgot to delete `./cache`. Got stale BM25 indexes returning wrong results. The inference scripts now auto-delete cache on startup, but be aware if you run custom experiments.
+14. **Cache invalidation is real** — Changed `corpus_types` but forgot to delete `./cache`. Got stale BM25 indexes returning wrong results. The inference scripts now auto-delete cache on startup, but be aware if you run custom experiments.
 
 ---
 
@@ -436,8 +518,7 @@ The GitHub Personal Access Token (PAT) cached in the macOS credential helper had
 |------|-----------|-------------|
 | May 10 | Project bootstrap, initial two-stage pipeline | `9f7d0c6` |
 | May 14 | Local data support, first blind-set submission, Kaggle configs | `1bc1c25` → `dbd0f70` |
-| May 15 | Package fix, auto-dotenv, Kaggle mount paths, T4 OOM fix | `92bf234` → `3806ee7` |
+| May 15 | Package fix, auto-dotenv, Kaggle mount paths, T4 OOM fix, multi-GPU fix | `92bf234` → latest |
 
-**Total commits:** 13  
-**Total hiccups resolved:** 9  
-**Coffees consumed:** ☕☕☕ (estimated)
+**Total hiccups resolved:** 10  
+**Coffees consumed:** ☕☕☕☕ (estimated, trending up)
