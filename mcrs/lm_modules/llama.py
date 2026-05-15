@@ -6,6 +6,11 @@ class LLAMA_MODEL:
     def __init__(self, model_name="meta-llama/Llama-3.2-1B-Instruct", device="cuda", attn_implementation="eager", dtype=torch.bfloat16):
         self.model_name = model_name
         self.device = device
+        # T4 GPUs don't natively support bfloat16 — auto-downgrade to float16
+        if device == "cuda" and dtype == torch.bfloat16:
+            if torch.cuda.is_available() and not torch.cuda.is_bf16_supported():
+                print("[INFO] GPU does not support bfloat16 — using float16 instead.")
+                dtype = torch.float16
         self.dtype = dtype
         self.attn_implementation = attn_implementation
         self.lm, self.tokenizer = self._load_model()
@@ -14,7 +19,12 @@ class LLAMA_MODEL:
 
     def _load_model(self):
         tokenizer = AutoTokenizer.from_pretrained(self.model_name, padding_side="left")
-        lm = AutoModelForCausalLM.from_pretrained(self.model_name, attn_implementation=self.attn_implementation, dtype=self.dtype)
+        lm = AutoModelForCausalLM.from_pretrained(
+            self.model_name,
+            attn_implementation=self.attn_implementation,
+            torch_dtype=self.dtype,
+            low_cpu_mem_usage=True,
+        )
         return lm, tokenizer
 
     def _format_chat_history(self, sys_prompt, chat_history: list, recommend_item: str):
@@ -52,11 +62,17 @@ class LLAMA_MODEL:
             for sys_prompt, chat_history, recommend_item in zip(sys_prompts, chat_histories, recommend_items)
         ]
 
-        # Tokenize with padding
+        # Tokenize with padding — cap input at 2048 tokens to prevent OOM
         if self.tokenizer.pad_token is None:
             self.tokenizer.pad_token = self.tokenizer.eos_token
 
-        token_inputs = self.tokenizer(formatted_chats, return_tensors="pt", padding=True, truncation=True)
+        token_inputs = self.tokenizer(
+            formatted_chats,
+            return_tensors="pt",
+            padding=True,
+            truncation=True,
+            max_length=2048,
+        )
         input_ids = token_inputs.input_ids.to(self.device)
         attention_mask = token_inputs.attention_mask.to(self.device)
 
@@ -65,7 +81,7 @@ class LLAMA_MODEL:
                 input_ids,
                 attention_mask=attention_mask,
                 max_new_tokens=max_new_tokens,
-                pad_token_id=self.tokenizer.pad_token_id
+                pad_token_id=self.tokenizer.pad_token_id,
             )
 
         # Decode only the newly generated tokens
