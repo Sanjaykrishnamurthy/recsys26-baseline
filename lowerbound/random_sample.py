@@ -1,10 +1,12 @@
 import os
 import json
 import random
+
+# Import mcrs.utils FIRST — it auto-loads .env before we read env vars
 from mcrs.utils import load_local_or_hf_dataset
 from tqdm import tqdm
 
-# Default dataset IDs — override with local paths if needed
+# Default dataset IDs — override via .env or explicit env vars
 TRACK_DB = os.environ.get("MCRS_TRACK_DB", "talkpl-ai/TalkPlayData-Challenge-Track-Metadata")
 TEST_DB = os.environ.get("MCRS_TEST_DB", "talkpl-ai/TalkPlayData-Challenge-Dataset")
 

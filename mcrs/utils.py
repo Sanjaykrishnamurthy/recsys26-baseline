@@ -23,6 +23,38 @@ import os
 from datasets import load_dataset, DatasetDict
 
 
+def _load_dotenv() -> None:
+    """Auto-load .env from the project root if it exists.
+
+    Reads ``KEY=VALUE`` lines (ignoring comments and blanks) and sets them
+    as environment variables.  Already-set variables are NOT overwritten,
+    so explicit ``export`` or ``source .env`` always takes precedence.
+
+    This is intentionally dependency-free (no python-dotenv required).
+    """
+    # Walk up from this file to find the project root containing .env
+    root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    env_path = os.path.join(root, ".env")
+    if not os.path.isfile(env_path):
+        return
+    with open(env_path, "r", encoding="utf-8") as f:
+        for line in f:
+            line = line.strip()
+            if not line or line.startswith("#"):
+                continue
+            if "=" not in line:
+                continue
+            key, _, value = line.partition("=")
+            key, value = key.strip(), value.strip()
+            # Don't overwrite existing env vars
+            if key not in os.environ:
+                os.environ[key] = value
+
+
+# Auto-load .env on first import of mcrs.utils
+_load_dotenv()
+
+
 def load_local_or_hf_dataset(name_or_path: str) -> DatasetDict:
     """Load a dataset from a local directory or from the HuggingFace Hub.
 
