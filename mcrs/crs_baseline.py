@@ -43,13 +43,14 @@ class CRS_BASELINE:
         attn_implementation="eager",
         dtype=torch.bfloat16,
         use_user_reranker: bool = False,
+        retrieval_model_name: str | None = None,
     ):
         """Initialize the CRS baseline components.
 
         Args:
             lm_type: LLM model identifier to load for response generation.
                      Any Hugging Face causal LM is supported (Llama, Qwen, etc.).
-            retrieval_type: Retrieval backend name ("bm25" or "bert").
+            retrieval_type: Retrieval backend name ("bm25", "sbert", or "bert").
             item_db_name: Dataset/DB name for item metadata.
             user_db_name: Dataset/DB name for user metadata.
             track_split_types: Dataset split names to load. Must be ["all_tracks"].
@@ -64,6 +65,9 @@ class CRS_BASELINE:
                 profile embedding and each candidate track embedding. Only
                 effective when retrieval_type="bert"; a warning is printed and
                 the flag is ignored for BM25.
+            retrieval_model_name: Optional model name or local path for the
+                retrieval encoder (SBERT/BERT). Defaults to the module's built-in
+                default when None. Use a local path for Kaggle notebooks.
         """
         self.cache_dir = cache_dir
         self.lm_type = lm_type
@@ -77,9 +81,10 @@ class CRS_BASELINE:
         self.dtype = dtype
         self.attn_implementation = attn_implementation
         self.use_user_reranker = use_user_reranker
+        self.retrieval_model_name = retrieval_model_name
 
         self.lm = load_lm_module(self.lm_type, self.device, self.attn_implementation, self.dtype)
-        self.retrieval = load_retrieval_module(self.retrieval_type, self.item_db_name, self.track_split_types, self.corpus_types, self.cache_dir)
+        self.retrieval = load_retrieval_module(self.retrieval_type, self.item_db_name, self.track_split_types, self.corpus_types, self.cache_dir, retrieval_model_name=self.retrieval_model_name)
         self.item_db = MusicCatalogDB(self.item_db_name, self.track_split_types, self.corpus_types)
         self.user_db = UserProfileDB(self.user_db_name, self.user_split_types)
         self.prompts_dir = os.path.join(os.path.dirname(__file__), "system_prompts")

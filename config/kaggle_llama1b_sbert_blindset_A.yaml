@@ -1,0 +1,31 @@
+# Kaggle GPU — Llama 3.2 1B + SBERT — Blind Set A
+#
+# Prerequisites in your Kaggle notebook:
+#   1. Add Model: Meta → Llama 3.2 → **Transformers** → 1B Instruct
+#   2. Add Dataset: sanjaykrish/TalkPlayData_New
+#   3. Enable GPU accelerator (T4 x2 or P100)
+#   4. Internet: On (for pip install + SBERT model download ~80MB)
+#
+# Optional: attach all-MiniLM-L6-v2 from Kaggle Models and set
+#   retrieval_model_name to the local path to skip the download.
+
+lm_type: "/kaggle/input/models/metaresearch/llama-3.2/transformers/1b-instruct/1"
+retrieval_type: "sbert"
+test_dataset_name: "/kaggle/input/datasets/sanjaykrish/talkplaydata-new/data/raw/TalkPlayData-Challenge-Blind-A"
+item_db_name: "/kaggle/input/datasets/sanjaykrish/talkplaydata-new/data/raw/TalkPlayData-Challenge-Track-Metadata"
+user_db_name: "/kaggle/input/datasets/sanjaykrish/talkplaydata-new/data/raw/TalkPlayData-Challenge-User-Metadata"
+track_split_types:
+  - "all_tracks"
+user_split_types:
+  - "all_users"
+corpus_types:
+  - "track_name"
+  - "artist_name"
+  - "album_name"
+  - "release_date"
+  - "tag_list"
+cache_dir: "./cache"
+device: "cuda"
+attn_implementation: "eager"
+use_user_reranker: false
+# retrieval_model_name: "/kaggle/input/models/sentence-transformers/all-minilm-l6-v2/pytorch/default/1"

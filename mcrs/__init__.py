@@ -38,24 +38,29 @@ def load_crs_baseline(
     attn_implementation: str = "eager",
     dtype: torch.dtype = torch.bfloat16,
     use_user_reranker: bool = False,
+    retrieval_model_name: str | None = None,
 ) -> CRS_BASELINE:
     """Create and return a fully initialized CRS baseline instance.
 
     Args:
         lm_type: LLM identifier — HF model ID, ``"ollama:<model>"``, or
             ``"none"`` for retrieval-only mode.
-        retrieval_type: ``"bm25"`` (sparse) or ``"bert"`` (dense).
+        retrieval_type: ``"bm25"`` (sparse), ``"sbert"`` (dense), or
+            ``"bert"`` (dense, legacy).
         item_db_name: HF dataset ID or local path for track metadata.
         user_db_name: HF dataset ID or local path for user profiles.
         track_split_types: Must be ``["all_tracks"]`` (competition rule).
         user_split_types: User dataset splits to load.
         corpus_types: Track metadata fields used for retrieval indexing.
-        cache_dir: Directory for caching BM25/BERT indexes.
+        cache_dir: Directory for caching BM25/SBERT/BERT indexes.
         device: ``"cuda"``, ``"mps"``, or ``"cpu"``.
         attn_implementation: ``"eager"`` or ``"flash_attention_2"``.
         dtype: Torch dtype for the LLM weights.
         use_user_reranker: Rerank candidates by user-profile similarity
             (requires ``retrieval_type="bert"``).
+        retrieval_model_name: Optional model name or local path for the
+            retrieval encoder. Defaults to the module's built-in default
+            when ``None``.
 
     Returns:
         A ready-to-use :class:`CRS_BASELINE` instance.
@@ -65,4 +70,5 @@ def load_crs_baseline(
         track_split_types, user_split_types, corpus_types,
         cache_dir, device, attn_implementation, dtype,
         use_user_reranker=use_user_reranker,
+        retrieval_model_name=retrieval_model_name,
     )

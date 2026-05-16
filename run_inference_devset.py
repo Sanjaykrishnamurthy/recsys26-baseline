@@ -83,6 +83,7 @@ def main(args):
         attn_implementation=config.attn_implementation,
         dtype=torch.bfloat16,
         use_user_reranker=getattr(config, "use_user_reranker", False),
+        retrieval_model_name=getattr(config, "retrieval_model_name", None),
     )
     db = load_local_or_hf_dataset(config.test_dataset_name)["test"]
     # Prepare all batch data at once
