@@ -34,6 +34,7 @@ The challenge tackles an evolving paradigm in music discovery: replacing static 
 | Deep learning | PyTorch | ≥ 2.5.1 |
 | LLM inference | Hugging Face Transformers | ≥ 4.46.3 |
 | Sparse retrieval | bm25s | ≥ 0.2.13 |
+| Dense retrieval | sentence-transformers | ≥ 3.0.0 |
 | Dataset access | Hugging Face Datasets | ≥ 3.1.0 |
 | Config management | OmegaConf | ≥ 2.3.0 |
 | System monitoring | psutil | ≥ 7.2.2 |
@@ -41,7 +42,8 @@ The challenge tackles an evolving paradigm in music discovery: replacing static 
 
 ### Default Models
 - **LLM**: `meta-llama/Llama-3.2-1B-Instruct` (swappable to any HF causal LM, e.g. `Qwen/Qwen3-4B`)
-- **Dense retriever**: `bert-base-uncased` (BERT module)
+- **Dense retriever**: `sentence-transformers/all-MiniLM-L6-v2` (SBERT module — recommended)
+- **Legacy dense retriever**: `bert-base-uncased` (BERT module — nDCG@20 ≈ 0, not recommended)
 - **Sparse retriever**: BM25 via `bm25s`
 
 ---
@@ -58,7 +60,8 @@ music-crs-baselines-main/
 │   ├── retrieval_modules/         # Stage 1 — track retrieval
 │   │   ├── __init__.py            # load_retrieval_module() factory
 │   │   ├── bm25.py                # BM25_MODEL — sparse TF-IDF retrieval
-│   │   └── bert.py                # BERT_MODEL — dense cosine-sim retrieval
+│   │   ├── bert.py                # BERT_MODEL — dense cosine-sim (legacy, nDCG≈0)
+│   │   └── sbert.py               # SBERT_MODEL — sentence-transformer retrieval
 │   │
 │   ├── lm_modules/                # Stage 2 — response generation
 │   │   ├── __init__.py            # load_lm_module() factory
@@ -80,12 +83,18 @@ music-crs-baselines-main/
 ├── config/                        # OmegaConf YAML experiment configs
 │   ├── llama1b_bm25_devset.yaml
 │   ├── llama1b_bert_devset.yaml
+│   ├── llama1b_sbert_devset.yaml  # SBERT retrieval + tag_list
 │   ├── llama1b_bm25_blindset_A.yaml
-│   └── llama1b_bert_blindset_A.yaml
+│   ├── llama1b_bert_blindset_A.yaml
+│   └── llama1b_sbert_blindset_A.yaml
 │
 ├── lowerbound/                    # Non-neural baseline scripts
 │   ├── random_sample.py           # Random track recommendations
 │   └── popularity.py              # Most-popular tracks from training set
+│
+├── docs/                          # Project documentation
+│   ├── eval_metrics.md            # Evaluation framework & scoring details
+│   └── leaderboard.xlsx           # Codabench submission scores per model & metric
 │
 ├── tips/                          # Improvement directions (read-only guides)
 │   ├── improve_item_representation.md
@@ -123,7 +132,7 @@ Output: { user_id, user_query, retrieval_items, recommend_item, response }
 
 ### Key Data Flow Details
 - **System prompt** = `roleplay.txt` + `response_generation.txt` + (optionally) `personalization.txt` + user profile string
-- **Retrieval input** = full conversation history joined as `"role: content\n..."` strings
+- **Retrieval input** = latest user query only (avoids truncation and embedding dilution with dense retrievers)
 - **LLM input** = system prompt + chat history + top-1 recommended item metadata (formatted as `track_id: ..., track_name: ..., artist_name: ...`)
 - **Output JSON** (submitted for evaluation):
   ```json
@@ -170,10 +179,18 @@ Key methods:
 - Builds a BM25 index over concatenated metadata fields on first run, caches to `./cache/bm25/<corpus_name>/`
 - `text_to_item_retrieval(query, topk)` and `batch_text_to_item_retrieval(queries, topk)`
 
-### `BERT_MODEL` (`mcrs/retrieval_modules/bert.py`)
-- Encodes all tracks with mean-pooled BERT embeddings; uses cosine similarity for retrieval
+### `SBERT_MODEL` (`mcrs/retrieval_modules/sbert.py`)
+- Uses `sentence-transformers/all-MiniLM-L6-v2` (384-dim, contrastive-trained for cosine similarity)
+- Replaces the vanilla BERT retriever which scored nDCG@20 ≈ 0 due to untrained embeddings
+- Caches embeddings to `./cache/sbert/<corpus_name>/embeddings.pt`
+- `text_to_item_retrieval(query, topk)` and `batch_text_to_item_retrieval(queries, topk)`
+
+### `BERT_MODEL` (`mcrs/retrieval_modules/bert.py`) ⚠️ Legacy
+- Encodes all tracks with mean-pooled `bert-base-uncased` embeddings; uses cosine similarity
+- **Known issue**: nDCG@20 ≈ 0 on Codabench — `bert-base-uncased` is not trained for retrieval
 - Caches embeddings to `./cache/bert/<corpus_name>/embeddings.pt`
 - `text_to_item_retrieval(query, topk)` and `batch_text_to_item_retrieval(queries, topk)`
+- See `docs/2026-05-16-bert-retrieval-analysis-and-sbert-upgrade.md` for full analysis
 
 ### `LLAMA_MODEL` (`mcrs/lm_modules/llama.py`)
 - Wraps any HF causal LM (Llama, Qwen, etc.) using `AutoModelForCausalLM`
@@ -195,7 +212,7 @@ All experiments are driven by YAML files in `config/`. Config is loaded with Ome
 
 ```yaml
 lm_type: "meta-llama/Llama-3.2-1B-Instruct"
-retrieval_type: "bm25"                   # "bm25" or "bert"
+retrieval_type: "bm25"                   # "bm25", "sbert", or "bert"
 test_dataset_name: "talkpl-ai/TalkPlayData-Challenge-Dataset"
 item_db_name: "talkpl-ai/TalkPlayData-Challenge-Track-Metadata"
 user_db_name: "talkpl-ai/TalkPlayData-Challenge-User-Metadata"
@@ -276,6 +293,66 @@ python run_inference_devset.py --tid my_experiment --batch_size 8
 
 ---
 
+## Kaggle GPU Workflow
+
+Development happens **locally in VSCode** (no GPU). Inference runs on **Kaggle Notebooks** with free GPU (T4/P100). The workflow is:
+
+1. **Local (VSCode)**: edit code → commit → push to GitHub
+2. **Kaggle Notebook**: pull latest code → install deps → run inference
+
+### Kaggle Environment
+- **GitHub repo**: `Sanjaykrishnamurthy/recsys26-baseline`
+- **Kaggle datasets attached**: `TalkPlayData_New` (contains the HF datasets cached locally)
+- **Kaggle models attached**: `Llama 3.2 · llama-3.2 · V1` (the Llama-3.2-1B-Instruct weights)
+- **Output directory**: `/kaggle/working/recsys26-baseline/`
+
+### Kaggle Notebook Template
+
+```python
+# --- Cell 1: Clone / pull repo ---
+import os
+from kaggle_secrets import UserSecretsClient
+token = UserSecretsClient().get_secret("github_token")
+
+%cd /kaggle/working
+!rm -rf recsys26-baseline
+!git clone https://{token}@github.com/Sanjaykrishnamurthy/recsys26-baseline.git
+
+%cd recsys26-baseline
+
+# --- Cell 2: Install dependencies ---
+!pip install -r requirements.txt
+!pip install -e .
+!pip install accelerate -q
+
+# --- Cell 3: Pull latest (if already cloned) ---
+%cd /kaggle/working/recsys26-baseline
+!git pull
+
+# --- Cell 4: Run inference (CHANGE --tid and --eval_dataset as needed) ---
+!python run_inference_blindset.py \
+    --tid kaggle_llama1b_bm25_blindset_A \
+    --eval_dataset blindset_A \
+    --batch_size 2
+```
+
+### Required Kaggle Input Models per Config
+
+| Config `--tid` | Kaggle Model needed |
+|----------------|-------------------|
+| `kaggle_llama1b_*` | `Llama 3.2 · llama-3.2 · V1` |
+| Any SBERT config | No extra model — `all-MiniLM-L6-v2` auto-downloads (~80MB) |
+
+### AI Assistant Rules for Kaggle Workflow
+
+> **After making code changes, always push to GitHub** so the user can `git pull` in Kaggle.
+> **Always tell the user**:
+> 1. Which Kaggle input **model** they need attached (if changed)
+> 2. The exact **notebook cell code** to run the new experiment
+> 3. The **`--tid`** and **`--batch_size`** to use
+
+---
+
 ## Critical Rules & Constraints
 
 > **Breaking these rules will invalidate your submission.**
@@ -294,6 +371,51 @@ python run_inference_devset.py --tid my_experiment --batch_size 8
 4. **Cache invalidation**: The `run_inference_*.py` scripts delete `./cache` at startup. If you modify the retrieval index logic, manually delete `./cache` to force a rebuild.
 
 5. **No secrets in code**: Never hardcode HuggingFace tokens, API keys, or credentials. Use environment variables (`HF_TOKEN`, etc.) or `huggingface-cli login`.
+
+---
+
+## Evaluation Metrics
+
+Full details are documented in [`docs/eval_metrics.md`](docs/eval_metrics.md). Submission scores are tracked in [`docs/leaderboard.xlsx`](docs/leaderboard.xlsx).
+
+### Composite Score Formula
+
+$$
+\text{Score} = 0.50 \times \text{nDCG@20} + 0.10 \times \text{CatalogDiversity} + 0.10 \times \text{LexicalDiversity} + 0.30 \times \text{LLM-Judge}
+$$
+
+### Metric Breakdown
+
+| Metric | Weight | What it measures | Optimization levers |
+|--------|--------|------------------|---------------------|
+| **nDCG@20** | 0.50 | Ranking quality of predicted tracks vs. ground-truth | Better retrieval, reranking, richer item representations |
+| **Catalog Diversity** | 0.10 | Coverage of the music catalog (unique tracks / catalog size) | Avoid popularity bias; diversify recommendations |
+| **Lexical Diversity** | 0.10 | Distinct-2 bigram ratio across generated responses | Varied LLM prompts; avoid repetitive templates |
+| **LLM-as-a-Judge** | 0.30 | Response quality (Personalization + Explanation) scored by Gemini | Better system prompts, user-profile integration, response formatting |
+
+### Current Baseline Scores (Codabench)
+
+Scores from our submitted baselines on the Codabench leaderboard (see `docs/leaderboard.xlsx` for full data):
+
+| Model | Rank | Composite Score | nDCG@20 | Catalog Diversity | Lexical Diversity | LLM Score (raw 1–5) |
+|-------|------|-----------------|---------|-------------------|-------------------|----------------------|
+| **Bert_Llama** | 63 | 0.06 | 0 | 0.01 | 0.61 | 1 |
+| **bm25_llama** | 49 | 0.19 | 0.15 | 0.03 | 0.68 | 1.6 |
+
+**Key takeaways from current scores:**
+- **nDCG@20 is near zero** for both baselines — retrieval quality is the #1 bottleneck and the highest-leverage improvement area.
+- **LLM Score is very low** (1–1.6 out of 5) — system prompts and response generation need significant work.
+- **Lexical Diversity is decent** (~0.6–0.7) — response variety is not the main problem.
+- **Catalog Diversity is minimal** (0.01–0.03) — the system is recommending a very narrow slice of the catalog.
+- **BM25 outperforms BERT** on the current baselines (rank 49 vs 63), suggesting sparse retrieval is a stronger starting point.
+
+### Implications for Development
+
+- **nDCG@20 dominates** (50% weight) — prioritize retrieval accuracy above all else.
+- **LLM-Judge is the second largest** (30%) — invest in system prompt quality, personalization, and explanation richness.
+- **Diversity metrics** (10% each) are complementary — ensure the system doesn't collapse to a narrow set of popular tracks or repetitive language.
+- LLM-Judge scores are normalized to [0, 1] using min-max with fixed bounds (1–5 scale → `(score - 1) / 4`).
+- nDCG is macro-averaged across sessions and turns; each turn has exactly one ground-truth track.
 
 ---
 
@@ -376,6 +498,9 @@ User profile fields: `user_id`, `age_group`, `gender`, `country_name`
   - `docs/2026-05-14-kaggle-gpu-setup.md` — Kaggle GPU setup
   - `docs/2026-05-15-execution-guide.md` — local + remote execution
   - `docs/2026-05-15-prepare-submission.md` — submission packaging
+  - `docs/eval_metrics.md` — evaluation framework & composite scoring formula
+  - `docs/leaderboard.xlsx` — Codabench submission scores per model & metric
+  - `docs/2026-05-16-bert-retrieval-analysis-and-sbert-upgrade.md` — why BERT nDCG≈0 and SBERT fix
 
 ---
 

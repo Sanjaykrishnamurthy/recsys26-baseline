@@ -28,6 +28,7 @@ dependencies = [
     "torch>=2.5.1",
     "tqdm>=4.66.0",
     "transformers>=4.46.3",
+    "sentence-transformers>=3.0.0",
 ]
 
 [project.optional-dependencies]

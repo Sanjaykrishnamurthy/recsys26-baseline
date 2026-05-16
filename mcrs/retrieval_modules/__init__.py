@@ -1,5 +1,6 @@
 from .bm25 import BM25_MODEL
 from .bert import BERT_MODEL
+from .sbert import SBERT_MODEL
 from .user_reranker import UserBERTReranker
 
 def load_retrieval_module(
@@ -13,5 +14,7 @@ def load_retrieval_module(
         return BM25_MODEL(dataset_name, track_split_types, corpus_types, cache_dir)
     elif retrieval_type == "bert":
         return BERT_MODEL(dataset_name, track_split_types, corpus_types, cache_dir)
+    elif retrieval_type == "sbert":
+        return SBERT_MODEL(dataset_name, track_split_types, corpus_types, cache_dir)
     else:
         raise ValueError(f"Unsupported retrieval type: {retrieval_type}")

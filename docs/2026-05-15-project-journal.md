@@ -16,7 +16,7 @@
 - [Day 3 — Package Structure, Kaggle, & OOM Fixes (May 15)](#day-3--package-structure-kaggle--oom-fixes-may-15)
   - [Hiccup #3: `pip install -e .` Doesn't Find Subpackages](#hiccup-3-pip-install--e--doesnt-find-subpackages)
   - [Hiccup #4: Lowerbound Scripts Crash Without `source .env`](#hiccup-4-lowerbound-scripts-crash-without-source-env)
-  - [Hiccup #5: Competition Expects `predictions.json`, Not `prediction.json`](#hiccup-5-competition-expects-predictionsjson-not-predictionjson)
+  - [Hiccup #5: Submission File Naming — `prediction.json` (singular)](#hiccup-5-submission-file-naming--predictionjson-singular)
   - [Hiccup #6: Kaggle Mount Paths Are Not HuggingFace Hub IDs](#hiccup-6-kaggle-mount-paths-are-not-huggingface-hub-ids)
   - [Hiccup #7: Kaggle Llama Model — PyTorch vs Transformers Format](#hiccup-7-kaggle-llama-model--pytorch-vs-transformers-format)
   - [Hiccup #8: CUDA Out-of-Memory on Kaggle T4 GPU](#hiccup-8-cuda-out-of-memory-on-kaggle-t4-gpu)
@@ -211,15 +211,15 @@ TRACK_DB = os.environ.get('MCRS_TRACK_DB', '...')   # now env vars are set
 
 ---
 
-### Hiccup #5: Competition Expects `predictions.json`, Not `prediction.json`
+### Hiccup #5: Submission File Naming — `prediction.json` (singular)
 
 **What happened:**  
-Discovered mid-workflow that the competition evaluator expects the file inside the submission zip to be named `predictions.json` (plural), not `prediction.json` (singular).
+The submission file inside the zip was initially named `prediction.json`. Then I incorrectly changed it to `predictions.json` (plural), thinking the competition expected the plural form. It was actually correct the first time — the competition expects **`prediction.json`** (singular). Had to rename everything back.
 
 **Fix:**  
-Renamed everywhere — `prepare_submission.py`, `.gitignore`, all documentation. A global find-and-replace across the project.
+Global find-and-replace across `prepare_submission.py`, `.gitignore`, and all documentation — twice. Once to pluralize (wrong), once to revert to singular (correct).
 
-**Lesson:** Read the competition spec carefully for exact naming conventions. A single character (`s`) can mean the difference between a valid and rejected submission.
+**Lesson:** Double-check the competition spec *and* verify against the evaluator before renaming. When in doubt, test with a small submission. A single `s` caused two full rounds of renames across the project.
 
 ---
 

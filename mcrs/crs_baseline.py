@@ -153,8 +153,9 @@ class CRS_BASELINE:
         self.session_memory.append({"role": "user", "content": user_query})
         # stage0. system prompt
         system_prompt = self._get_system_prompt(user_id)
-        # stage1. retrieval — fetch larger pool when reranker is active
-        retrieval_input = "\n".join([f"{conversation['role']}: {conversation['content']}" for conversation in self.session_memory])
+        # stage1. retrieval — use latest user query only to avoid truncation
+        #         and embedding dilution with dense retrievers (SBERT/BERT)
+        retrieval_input = user_query
         retrieval_topk = 100 if self.reranker else 20
         retrieval_items = self.retrieval.text_to_item_retrieval(retrieval_input, topk=retrieval_topk)
         # stage1b. optional user-profile reranking
@@ -203,8 +204,9 @@ class CRS_BASELINE:
             session_memory.append({"role": "user", "content": user_query})
 
             sys_prompts.append(self._get_system_prompt(user_id))
-            retrieval_input = "\n".join([f"{conversation['role']}: {conversation['content']}" for conversation in session_memory])
-            retrieval_inputs.append(retrieval_input)
+            # Use latest user query only — avoids truncation and embedding
+            # dilution with dense retrievers (SBERT/BERT)
+            retrieval_inputs.append(user_query)
             session_memories.append(session_memory)
             user_ids.append(user_id)
 

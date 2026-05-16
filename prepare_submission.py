@@ -2,14 +2,14 @@
 
 Takes the raw JSON produced by run_inference_blindset.py, validates it against
 the official submission rules, and packages it as submission.zip containing
-a single file named predictions.json.
+a single file named prediction.json.
 
 Submission rules enforced:
   - Every (session_id, turn_number) pair must have a prediction
   - predicted_track_ids must be unique within each prediction
   - predicted_track_ids are capped at 20 (most relevant first)
   - predicted_response must be a string (empty string is allowed)
-  - Output file must be named predictions.json inside submission.zip
+  - Output file must be named prediction.json inside submission.zip
 
 Usage:
     python prepare_submission.py \\
@@ -185,17 +185,17 @@ def main(args: argparse.Namespace) -> None:
         print("\n[dry-run] No files written.")
         return
 
-    # ── Write predictions.json ─────────────────────────────────────────────────
+    # ── Write prediction.json ──────────────────────────────────────────────────
     out_dir = os.path.dirname(os.path.abspath(args.output))
     os.makedirs(out_dir, exist_ok=True)
-    pred_path = os.path.join(out_dir, "predictions.json")
+    pred_path = os.path.join(out_dir, "prediction.json")
     with open(pred_path, "w", encoding="utf-8") as f:
         json.dump(cleaned, f, ensure_ascii=False, indent=2)
-    print(f"\nWrote predictions.json → '{pred_path}'")
+    print(f"\nWrote prediction.json → '{pred_path}'")
 
     # ── Zip as submission.zip ─────────────────────────────────────────────────
     with zipfile.ZipFile(args.output, "w", zipfile.ZIP_DEFLATED) as zf:
-        zf.write(pred_path, arcname="predictions.json")
+        zf.write(pred_path, arcname="prediction.json")
 
     zip_size_mb = os.path.getsize(args.output) / 1024 / 1024
     print(f"Created '{args.output}' ({zip_size_mb:.1f} MB)")
