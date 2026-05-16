@@ -22,6 +22,7 @@
   - [Hiccup #8: CUDA Out-of-Memory on Kaggle T4 GPU](#hiccup-8-cuda-out-of-memory-on-kaggle-t4-gpu)
   - [Hiccup #9: GitHub Push Auth Expires on Corporate Network](#hiccup-9-github-push-auth-expires-on-corporate-network)
   - [Hiccup #10: `device_map="auto"` Nullified by `.to(device)` — Second GPU Empty](#hiccup-10-device_mapauto-nullified-by-todevice--second-gpu-empty)
+  - [Hiccup #11: BERT + Llama Together OOM — Two Models, One GPU](#hiccup-11-bert--llama-together-oom--two-models-one-gpu)
 - [Lessons Learned](#lessons-learned)
 
 ---
@@ -472,6 +473,59 @@ With ~13 GB free across both GPUs for KV cache + activations + batch tensors, in
 
 ---
 
+### Hiccup #11: BERT + Llama Together OOM — Two Models, One GPU
+
+**What happened:**  
+After fixing Hiccup #10 (multi-GPU Llama), switched from BM25 to BERT retrieval:
+
+```bash
+python run_inference_blindset.py --tid kaggle_llama1b_bert_blindset_A --batch_size 2
+```
+
+It ran fine for 7 batches (18% progress), then OOM'd at batch 8:
+
+```
+torch.OutOfMemoryError: CUDA out of memory.
+Tried to allocate 730.00 MiB. GPU 0 has a total capacity of 14.56 GiB
+of which 739.81 MiB is free.
+```
+
+**Root cause — two models competing for GPU 0:**
+
+The BERT retrieval model was sitting on the GPU permanently, even though it's only used briefly to encode queries:
+
+| Component on GPU 0 | VRAM |
+|---------------------|------|
+| Llama layers (half) | ~7 GB |
+| BERT model (`bert-base-uncased`) | ~440 MB |
+| BERT query activations | ~100 MB |
+| Llama KV cache + batch activations | ~4-6 GB |
+| **Total** | **~12-14 GB → OOM** |
+
+BM25 is CPU-only (no model weights on GPU), which is why it worked fine. BERT adds ~540 MB of GPU pressure that tips it over the edge.
+
+**Fix — move BERT to CPU after index building:**
+
+```python
+# In BERT_MODEL.__init__(), after index is loaded:
+if self.device != "cpu":
+    print("[INFO] Moving BERT retriever to CPU to free GPU memory for LLM.")
+    self.model.to("cpu")
+    self.device = "cpu"
+    if torch.cuda.is_available():
+        torch.cuda.empty_cache()
+```
+
+**Why this works without slowing things down:**
+- Index building (47K tracks) → uses GPU, runs once, cached to disk
+- Query encoding (1 short text per retrieval call) → fast on CPU (~5ms)
+- Cosine similarity (`embeddings @ query`) → already on CPU
+- Net GPU savings: ~440 MB freed for Llama
+
+**Lesson:** When running multiple models on a GPU-constrained setup, audit which models actually *need* GPU at inference time. Retrieval encoders process tiny inputs (one query at a time) and run fast on CPU. Reserve GPU for the expensive generative model.
+
+---
+
 ## Lessons Learned
 
 ### Environment & Infrastructure
@@ -502,6 +556,8 @@ With ~13 GB free across both GPUs for KV cache + activations + batch tensors, in
 
 11. **`accelerate` is a silent dependency** — `device_map="auto"` in Transformers requires the `accelerate` library. Without it, the model loads onto a single device with no warning. Always add it to your dependencies explicitly.
 
+12. **Move retrieval models to CPU at inference** — When running a retrieval encoder alongside a generative LLM, the retrieval model only encodes short queries (fast on CPU). Move it off GPU after index building to free VRAM for the LLM that actually needs it.
+
 ### Competition-Specific
 
 10. **Read the spec twice** — `prediction.json` vs `predictions.json` cost me a rename across the entire project. Small naming errors cause silent submission rejections.
@@ -520,5 +576,5 @@ With ~13 GB free across both GPUs for KV cache + activations + batch tensors, in
 | May 14 | Local data support, first blind-set submission, Kaggle configs | `1bc1c25` → `dbd0f70` |
 | May 15 | Package fix, auto-dotenv, Kaggle mount paths, T4 OOM fix, multi-GPU fix | `92bf234` → latest |
 
-**Total hiccups resolved:** 10  
-**Coffees consumed:** ☕☕☕☕ (estimated, trending up)
+**Total hiccups resolved:** 11  
+**Coffees consumed:** ☕☕☕☕☕ (estimated, definitely trending up)

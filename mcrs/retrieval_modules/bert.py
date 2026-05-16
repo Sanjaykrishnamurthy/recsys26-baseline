@@ -59,6 +59,8 @@ class BERT_MODEL:
         self.metadata_dict = self._load_corpus()
         self.tokenizer = AutoTokenizer.from_pretrained(self.model_name, use_fast=True)
         self.model = AutoModel.from_pretrained(self.model_name)
+        # Use GPU for index building (fast), then move to CPU for inference
+        # so the GPU VRAM is fully available for the LLM.
         self.model.to(self.device).eval()
 
         if os.path.exists(os.path.join(self.index_dir, "embeddings.pt")) and \
@@ -67,6 +69,15 @@ class BERT_MODEL:
         else:
             self.build_index()
             self.embeddings, self.track_ids = self._load_index()
+
+        # Move BERT to CPU after indexing — query encoding is fast on CPU
+        # and this frees ~440MB of GPU VRAM for the LLM.
+        if self.device != "cpu":
+            print("[INFO] Moving BERT retriever to CPU to free GPU memory for LLM.")
+            self.model.to("cpu")
+            self.device = "cpu"
+            if torch.cuda.is_available():
+                torch.cuda.empty_cache()
 
     def _load_index(self) -> Tuple[torch.Tensor, List[str]]:
         """Load cached embedding matrix and track id list.
