@@ -1,0 +1,32 @@
+# Local (no GPU) — Hybrid BM25+SBERT retrieval — Dev Set
+#
+# Combines BM25 (exact keyword matching) with SBERT (semantic similarity)
+# using Reciprocal Rank Fusion (RRF). No LLM — retrieval-only evaluation.
+#
+# PREREQUISITE: Download the SBERT model once (off corporate network):
+#   python -c "from sentence_transformers import SentenceTransformer; SentenceTransformer('sentence-transformers/all-MiniLM-L6-v2').save('./models/all-MiniLM-L6-v2')"
+#
+# Run:
+#   python run_inference_devset.py --tid local_hybrid_devset --batch_size 16
+#   python run_evaluate_devset.py --tid local_hybrid_devset --config local_hybrid_devset
+
+lm_type: "none"
+retrieval_type: "hybrid"
+retrieval_model_name: "./all-MiniLM-L6-v2"
+test_dataset_name: "./data/raw/TalkPlayData-Challenge-Dataset"
+item_db_name: "./data/raw/TalkPlayData-Challenge-Track-Metadata"
+user_db_name: "./data/raw/TalkPlayData-Challenge-User-Metadata"
+track_split_types:
+  - "all_tracks"
+user_split_types:
+  - "all_users"
+corpus_types:
+  - "track_name"
+  - "artist_name"
+  - "album_name"
+  - "release_date"
+  - "tag_list"
+cache_dir: "./cache"
+device: "mps"
+attn_implementation: "eager"
+use_user_reranker: false

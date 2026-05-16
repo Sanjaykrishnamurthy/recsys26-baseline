@@ -60,8 +60,9 @@ music-crs-baselines-main/
 │   ├── retrieval_modules/         # Stage 1 — track retrieval
 │   │   ├── __init__.py            # load_retrieval_module() factory
 │   │   ├── bm25.py                # BM25_MODEL — sparse TF-IDF retrieval
-│   │   ├── bert.py                # BERT_MODEL — dense cosine-sim (legacy, nDCG≈0)
-│   │   └── sbert.py               # SBERT_MODEL — sentence-transformer retrieval
+│   │   ├── sbert.py               # SBERT_MODEL — sentence-transformer retrieval
+│   │   ├── hybrid.py              # HYBRID_MODEL — BM25+SBERT with RRF fusion
+│   │   └── bert.py                # BERT_MODEL — dense cosine-sim (legacy, nDCG≈0)
 │   │
 │   ├── lm_modules/                # Stage 2 — response generation
 │   │   ├── __init__.py            # load_lm_module() factory
@@ -74,6 +75,11 @@ music-crs-baselines-main/
 │   ├── db_user/                   # User profile database
 │   │   ├── __init__.py
 │   │   └── user_profile.py        # UserProfileDB: user_id → profile string
+│   │
+│   ├── evaluation/                # Integrated evaluation metrics (from music-crs-evaluator)
+│   │   ├── __init__.py            # Exports compute_recsys_metrics, compute_*_diversity
+│   │   ├── metrics_recsys.py      # nDCG@k and retrieval metrics
+│   │   └── metrics_diversity.py   # Catalog diversity and lexical diversity
 │   │
 │   └── system_prompts/            # Plain-text LLM prompt templates
 │       ├── roleplay.txt           # Persona / base role prompt
@@ -103,6 +109,7 @@ music-crs-baselines-main/
 │
 ├── run_inference_devset.py        # Batch inference on the dev/test split
 ├── run_inference_blindset.py      # Batch inference for blind submission sets
+├── run_evaluate_devset.py         # Local evaluation (integrated from music-crs-evaluator)
 ├── pyproject.toml                 # Package metadata + dependencies
 └── .venv/                         # Local virtual environment (Python 3.12)
 ```
@@ -258,6 +265,20 @@ python run_inference_devset.py --tid llama1b_bm25_devset --batch_size 16
 python run_inference_devset.py --tid llama1b_bert_devset --batch_size 16
 ```
 Output saved to: `exp/inference/devset/<tid>.json`
+
+### Evaluate Locally (after inference)
+```bash
+# Basic — evaluates exp/inference/devset/<tid>.json against ground truth
+python run_evaluate_devset.py --tid local_bm25_devset
+
+# With config — resolves local dataset paths (works offline)
+python run_evaluate_devset.py --tid local_bm25_devset --config llama1b_bm25_devset
+
+# Force-regenerate ground truth
+python run_evaluate_devset.py --tid local_bm25_devset --regenerate-gt
+```
+Output saved to: `exp/scores/devset/<tid>.json`
+Computes: nDCG@{1,10,20}, catalog diversity, lexical diversity, partial composite score (70% of Codabench weight — excludes LLM-Judge).
 
 ### Run Inference — Blind Sets (for submission)
 ```bash

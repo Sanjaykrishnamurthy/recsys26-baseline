@@ -1,0 +1,33 @@
+# Kaggle GPU — Llama 3.2 1B + Hybrid BM25+SBERT — Dev Set
+#
+# Combines BM25 (exact keyword matching) with SBERT (semantic similarity)
+# using Reciprocal Rank Fusion (RRF), then generates responses with Llama.
+#
+# Prerequisites in your Kaggle notebook:
+#   1. Add Model: Meta → Llama 3.2 → **Transformers** → 1B Instruct
+#   2. Add Dataset: sanjaykrish/TalkPlayData_New
+#   3. Enable GPU accelerator (T4 x2 or P100)
+#   4. Internet: On (for pip install + SBERT model download ~80MB)
+#
+# Run:
+#   python run_inference_devset.py --tid kaggle_llama1b_hybrid_devset --batch_size 2
+
+lm_type: "/kaggle/input/models/metaresearch/llama-3.2/transformers/1b-instruct/1"
+retrieval_type: "hybrid"
+test_dataset_name: "/kaggle/input/datasets/sanjaykrish/talkplaydata-new/data/raw/TalkPlayData-Challenge-Dataset"
+item_db_name: "/kaggle/input/datasets/sanjaykrish/talkplaydata-new/data/raw/TalkPlayData-Challenge-Track-Metadata"
+user_db_name: "/kaggle/input/datasets/sanjaykrish/talkplaydata-new/data/raw/TalkPlayData-Challenge-User-Metadata"
+track_split_types:
+  - "all_tracks"
+user_split_types:
+  - "all_users"
+corpus_types:
+  - "track_name"
+  - "artist_name"
+  - "album_name"
+  - "release_date"
+  - "tag_list"
+cache_dir: "./cache"
+device: "cuda"
+attn_implementation: "eager"
+use_user_reranker: false
