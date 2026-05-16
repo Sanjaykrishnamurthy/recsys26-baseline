@@ -372,6 +372,12 @@ token = UserSecretsClient().get_secret("github_token")
 
 5. **No secrets in code**: Never hardcode HuggingFace tokens, API keys, or credentials. Use environment variables (`HF_TOKEN`, etc.) or `huggingface-cli login`.
 
+6. **Submission naming**: When packaging submissions with `prepare_submission.py`, always use intuitive names derived from the model/config. The script auto-names from the input filename when `--output` is omitted (e.g., `submission_kaggle_llama1b_sbert_blindset_A.zip`). Examples:
+   - `submission_kaggle_llama1b_bm25_blindset_A.zip`
+   - `submission_kaggle_llama1b_sbert_blindset_A.zip`
+   - `submission_kaggle_llama1b_bert_blindset_A.zip`
+   Never use generic names like `submission.zip` — the name must identify the model configuration.
+
 ---
 
 ## Evaluation Metrics

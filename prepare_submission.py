@@ -145,6 +145,13 @@ def check_coverage(records: list[dict]) -> list[str]:
 # ── Main ───────────────────────────────────────────────────────────────────────
 
 def main(args: argparse.Namespace) -> None:
+    # ── Auto-name output from input filename if not specified ─────────────────
+    if args.output is None:
+        # e.g. exp/inference/blindset_A/kaggle_llama1b_bm25_blindset_A.json
+        #   → submission_kaggle_llama1b_bm25_blindset_A.zip
+        input_stem = os.path.splitext(os.path.basename(args.input))[0]
+        args.output = f"submissions/submission_{input_stem}.zip"
+
     # ── Load ──────────────────────────────────────────────────────────────────
     if not os.path.exists(args.input):
         raise FileNotFoundError(f"Input file not found: {args.input}")
@@ -215,8 +222,9 @@ if __name__ == "__main__":
     parser.add_argument(
         "--output",
         type=str,
-        default="submissions/submission.zip",
-        help="Path for the output zip file (default: submissions/submission.zip)",
+        default=None,
+        help="Path for the output zip file. If omitted, auto-named from --input filename "
+             "(e.g. submission_bm25_llama.zip). Saved to submissions/ directory.",
     )
     parser.add_argument(
         "--dry-run",
