@@ -91,12 +91,17 @@ def main(args):
     for item in db:
         user_id = item['user_id']
         session_id = item['session_id']
+        # Extract per-session context for system prompt enrichment
+        conversation_goal = item.get('conversation_goal')
+        user_profile = item.get('user_profile')
         for target_turn_number in range(1, 9):
             chat_history, user_query = chat_history_parser(item['conversations'], music_crs, target_turn_number)
             batch_data.append({
                 'user_query': user_query,
                 'user_id': user_id,
-                'session_memory': chat_history
+                'session_memory': chat_history,
+                'conversation_goal': conversation_goal,
+                'user_profile': user_profile,
             })
             metadata.append({
                 'session_id': session_id,

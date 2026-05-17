@@ -118,17 +118,43 @@ class CRS_BASELINE:
         """
         self.session_memory = chat_history
 
-    def _get_system_prompt(self, user_id: Optional[str] = None) -> str:
-        """Build the system prompt, optionally personalized with a user profile.
+    def _get_system_prompt(
+        self,
+        user_id: Optional[str] = None,
+        conversation_goal: Optional[Dict[str, Any]] = None,
+        user_profile: Optional[Dict[str, Any]] = None,
+    ) -> str:
+        """Build the system prompt, optionally personalized with user context.
+
         Args:
-            user_id: Optional user identifier. When provided, includes a personalization segment derived from the user's profile.
+            user_id: Optional user identifier. When provided, includes a
+                personalization segment derived from the user's profile DB.
+            conversation_goal: Optional dict from the dataset with keys
+                ``listener_goal``, ``category``, and ``specificity``.
+            user_profile: Optional rich user profile dict from the dataset
+                (includes ``preferred_musical_culture`` etc.).
+
         Returns:
             The final system prompt string used for the LLM.
         """
         system_prompt = self.role_prompt["role_play"] + self.role_prompt["response_generation"]
+
+        # --- User profile personalization ---
         if user_id:
             user_profile_str = self.user_db.id_to_profile_str(user_id)
+            # Enrich with preferred_musical_culture from dataset profile
+            if user_profile and user_profile.get("preferred_musical_culture"):
+                user_profile_str += f"\npreferred_musical_culture: {user_profile['preferred_musical_culture']}"
             system_prompt += self.role_prompt["personalization"] + '\n' + user_profile_str
+
+        # --- Conversation goal context ---
+        if conversation_goal and conversation_goal.get("listener_goal"):
+            system_prompt += (
+                "\n\nThe listener's goal for this conversation is: "
+                + conversation_goal["listener_goal"]
+                + "\nTailor your recommendations and responses to help achieve this goal."
+            )
+
         return system_prompt
 
     def _get_user_profile_str(self, user_id: Optional[str]) -> Optional[str]:
@@ -188,6 +214,8 @@ class CRS_BASELINE:
                 - user_query: The user's latest message or request.
                 - user_id: Optional user identifier for personalization.
                 - session_memory: List of chat history messages.
+                - conversation_goal: Optional dict with listener_goal, category, specificity.
+                - user_profile: Optional rich user profile dict from the dataset.
         Returns:
             A list of dictionaries, each with keys:
                 - user_id: The user identifier (may be None).
@@ -208,7 +236,11 @@ class CRS_BASELINE:
             session_memory = data['session_memory'].copy()
             session_memory.append({"role": "user", "content": user_query})
 
-            sys_prompts.append(self._get_system_prompt(user_id))
+            sys_prompts.append(self._get_system_prompt(
+                user_id,
+                conversation_goal=data.get('conversation_goal'),
+                user_profile=data.get('user_profile'),
+            ))
             # Use latest user query only — avoids truncation and embedding
             # dilution with dense retrievers (SBERT/BERT)
             retrieval_inputs.append(user_query)
