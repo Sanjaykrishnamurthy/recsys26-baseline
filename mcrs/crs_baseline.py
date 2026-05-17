@@ -1,3 +1,4 @@
+import gc
 import os
 import torch
 from typing import Optional, Any, List, Dict
@@ -83,9 +84,18 @@ class CRS_BASELINE:
         self.use_user_reranker = use_user_reranker
         self.retrieval_model_name = retrieval_model_name
 
-        self.lm = load_lm_module(self.lm_type, self.device, self.attn_implementation, self.dtype)
+        # Load retrieval BEFORE the LLM so that SBERT/BERT can use GPU for
+        # fast index building, then move to CPU and free VRAM for the LLM.
+        # This prevents OOM on single-GPU setups (e.g. Kaggle T4 16 GB).
         self.retrieval = load_retrieval_module(self.retrieval_type, self.item_db_name, self.track_split_types, self.corpus_types, self.cache_dir, retrieval_model_name=self.retrieval_model_name)
         self.item_db = MusicCatalogDB(self.item_db_name, self.track_split_types, self.corpus_types)
+
+        # Reclaim GPU memory before loading the LLM
+        gc.collect()
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
+
+        self.lm = load_lm_module(self.lm_type, self.device, self.attn_implementation, self.dtype)
         self.user_db = UserProfileDB(self.user_db_name, self.user_split_types)
         self.prompts_dir = os.path.join(os.path.dirname(__file__), "system_prompts")
         self.role_prompt = {

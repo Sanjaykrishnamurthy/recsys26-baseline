@@ -67,8 +67,14 @@ def main(args):
         - Tracks progress with tqdm progress bar
         - Saves comprehensive results for evaluation
     """
-    print("Removing cache directory for preventing memory issues...")
-    os.system("rm -rf cache")
+    # Only clear BM25 cache (CPU-only, cheap to rebuild).
+    # Preserve SBERT/BERT embedding caches — they are expensive to rebuild
+    # and keeping them avoids GPU OOM on single-GPU setups like Kaggle T4.
+    print("Clearing BM25 cache (preserving SBERT/BERT embedding caches)...")
+    import shutil
+    bm25_cache = os.path.join("cache", "bm25")
+    if os.path.exists(bm25_cache):
+        shutil.rmtree(bm25_cache)
     config = OmegaConf.load(f"config/{args.tid}.yaml")
     music_crs = load_crs_baseline(
         lm_type=config.lm_type,
